@@ -129,4 +129,10 @@
     <string name="screenrecord_skip_time_summary">Remove the 3 second wait</string>
     <string name="screenrecord_hevc_switch_label">HEVC encoding</string>
     <string name="screenrecord_hevc_switch_summary">Use the more efficient HEVC encoder</string>
+
+    <!-- Sound QS Tile -->
+    <string name="quick_settings_sound_label">Sound</string>
+    <string name="quick_settings_sound_ring">Ring</string>
+    <string name="quick_settings_sound_vibrate">Vibrate</string>
+    <string name="quick_settings_sound_silent">Silent</string>
 </resources>
