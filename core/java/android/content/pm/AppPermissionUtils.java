@@ -19,6 +19,7 @@ package android.content.pm;
 import android.annotation.NonNull;
 import android.annotation.SystemApi;
 
+import com.android.internal.app.ContactScopes;
 import com.android.internal.app.StorageScopesAppHooks;
 
 /** @hide */
@@ -40,6 +41,10 @@ public class AppPermissionUtils {
             return true;
         }
 
+        if (ContactScopes.shouldSpoofSelfPermissionCheck(permName)) {
+            return true;
+        }
+
         return false;
     }
 
@@ -50,6 +55,10 @@ public class AppPermissionUtils {
     /** @hide */
     public static boolean shouldSpoofSelfAppOpCheck(int op) {
         if (StorageScopesAppHooks.shouldSpoofSelfAppOpCheck(op)) {
+            return true;
+        }
+
+        if (ContactScopes.shouldSpoofSelfAppOpCheck(op)) {
             return true;
         }
 
@@ -80,6 +89,13 @@ public class AppPermissionUtils {
                         return 0;
                     }
                 }
+                return permDflag;
+            }
+        }
+
+        if (ps.hasFlag(GosPackageStateFlag.CONTACT_SCOPES_ENABLED)) {
+            int permDflag = ContactScopes.getSpoofablePermissionDflag(perm);
+            if (permDflag != 0) {
                 return permDflag;
             }
         }
