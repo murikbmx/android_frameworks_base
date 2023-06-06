@@ -18,9 +18,11 @@ package android.content.pm;
 
 import android.annotation.NonNull;
 import android.annotation.SystemApi;
+import android.app.compat.gms.GmsCompat;
 
 import com.android.internal.app.ContactScopes;
 import com.android.internal.app.StorageScopesAppHooks;
+import com.android.internal.gmscompat.GmsHooks;
 
 /** @hide */
 @SystemApi
@@ -43,6 +45,12 @@ public class AppPermissionUtils {
 
         if (ContactScopes.shouldSpoofSelfPermissionCheck(permName)) {
             return true;
+        }
+
+        if (GmsCompat.isEnabled()) {
+            if (GmsHooks.config().shouldSpoofSelfPermissionCheck(permName)) {
+                return true;
+            }
         }
 
         return false;

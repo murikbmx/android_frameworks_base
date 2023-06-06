@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.GosPackageStateFlag;
 import android.ext.KnownSystemPackages;
+import com.android.internal.gmscompat.GmsCompatApp;
 import android.os.Build;
 import android.os.Process;
 import android.os.UserHandle;
@@ -118,7 +119,8 @@ class GosPackageStatePermissions {
         builder()
                 .readFlags(playIntegrityFlags)
                 .readWriteFlag(SUPPRESS_PLAY_INTEGRITY_API_NOTIF)
-                .apply("app.grapheneos.gmscompat", computer); // GmsCompatApp.PKG_NAME
+                .readWriteFields(FIELD_PACKAGE_FLAGS)
+                .apply(GmsCompatApp.PKG_NAME, computer);
 
         @GosPackageStateFlag.Enum int[] settingsReadWriteFlags = {
                 ALLOW_ACCESS_TO_OBB_DIRECTORY,
