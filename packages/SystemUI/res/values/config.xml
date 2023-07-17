@@ -904,7 +904,7 @@
     </array>
 
     <!-- Flag to enable privacy dot views, it shall be true for normal case -->
-    <bool name="config_enablePrivacyDot">true</bool>
+    <bool name="config_enablePrivacyDot">false</bool>
 
     <!-- Flag to enable privacy chip animation, it shall be true for normal case -->
     <bool name="config_enablePrivacyChipAnimation">false</bool>
