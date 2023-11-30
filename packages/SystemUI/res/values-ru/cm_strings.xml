@@ -77,4 +77,6 @@
     <string name="screenrecord_skip_time_summary">Убрать 3-х секундное ожидание</string>
     <string name="screenrecord_hevc_switch_label">Кодирование HEVC</string>
     <string name="screenrecord_hevc_switch_summary">Использовать более эффективный кодер HEVC</string>
+    <!-- Face unlock -->
+    <string name="face_unlock_recognizing">Распознавание лиц...</string>
 </resources>
