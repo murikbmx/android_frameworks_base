@@ -134,4 +134,7 @@
     <string name="keyguard_charging_details_current"><xliff:g id="current">%1$.1f</xliff:g> A</string>
     <string name="keyguard_charging_details_power"><xliff:g id="power">%1$.1f</xliff:g> W</string>
     <string name="keyguard_charging_details_temperature"><xliff:g id="temperature">%1$.1f</xliff:g> °C</string>
+
+    <!-- Face unlock -->
+    <string name="face_unlock_recognizing">Recognizing face...</string>
 </resources>
