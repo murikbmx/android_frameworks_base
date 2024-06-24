@@ -309,6 +309,7 @@ public class SecureSettings {
         Settings.Secure.TETHERING_ALLOW_VPN_UPSTREAMS,
         Settings.Secure.MANDATORY_BIOMETRICS,
         Settings.Secure.MANDATORY_BIOMETRICS_REQUIREMENTS_SATISFIED,
+        Settings.Secure.STRICT_LOCATION_REDACTION,
         Settings.Secure.ADVANCED_PROTECTION_MODE,
         Settings.Secure.ACCESSIBILITY_KEY_GESTURE_TARGETS,
         Settings.Secure.EM_VALUE,
