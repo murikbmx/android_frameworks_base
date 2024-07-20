@@ -173,6 +173,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import javax.security.auth.callback.Callback;
+
 /**
  * Visual presentation of the volume dialog.
  *
@@ -1575,8 +1577,8 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
 
     private void initAppVolumes() {
         clearAppVolumes();
-        boolean showAppVolume = Settings.System.getIntForUser(mContext.getContentResolver(),
-            Settings.System.SHOW_APP_VOLUME,
+        boolean showAppVolume = LineageSettings.System.getIntForUser(mContext.getContentResolver(),
+            LineageSettings.System.SHOW_APP_VOLUME,
             0, UserHandle.USER_CURRENT) == 1;
         if (!showAppVolume || mAppVolumeView == null) {
             return;
