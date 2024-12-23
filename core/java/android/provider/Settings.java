@@ -6331,6 +6331,20 @@ public final class Settings {
          * it to PRIVATE_SETTINGS below. Also add a validator that can validate
          * the setting value. See an example above.
          */
+         
+         /**
+         * Three Finger Gesture from Oppo
+         * @hide
+         */
+        @Readable
+        public static final String THREE_FINGER_GESTURE = "three_finger_gesture";
+        /**
+         * Three Finger Gesture - flag for activation
+         * NOT for backup!
+         * @hide
+         */
+        @Readable
+        public static final String THREE_FINGER_GESTURE_ACTIVE = "three_finger_gesture_active";
 
         /**
          * Keys we no longer back up under the current schema, but want to continue to
