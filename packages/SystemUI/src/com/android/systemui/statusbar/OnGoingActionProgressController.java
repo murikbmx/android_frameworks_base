@@ -228,7 +228,7 @@ public class OnGoingActionProgressController implements NotificationListener.Not
         Notification notification = sbn.getNotification();
         if (!hasProgress(notification)) {
             // Log.d(TAG, "Got notification without progress");
-            if (mTrackedNotificationKey != null && mTrackedNotificationKey.equals(sbn.getKey())) {
+            if (sbn.getKey() == mTrackedNotificationKey) {
                 // The notification we track has no progress anymore
                 Log.d(TAG, "Tracked notification has lost progress");
                 synchronized (this) {
