@@ -217,6 +217,9 @@ public class OnGoingActionProgressController implements NotificationListener.Not
         Log.d(TAG, "updateViews: " + mCurrentProgress + "/" + mCurrentProgressMax);
         mProgressBar.setMax(mCurrentProgressMax);
         mProgressBar.setProgress(mCurrentProgress);
+        if (mCurrentDrawable != null) {
+            mIconView.setImageDrawable(mCurrentDrawable);
+        }
     }
 
     /**
