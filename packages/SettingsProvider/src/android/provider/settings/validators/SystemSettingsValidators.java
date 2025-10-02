@@ -282,5 +282,8 @@ public class SystemSettingsValidators {
                 System.CV_PREFERRED_INTENSITY,
                 new InclusiveIntegerRangeValidator(
                         CV_PREFERRED_INTENSITY_MIN, CV_PREFERRED_INTENSITY_MAX));
+        VALIDATORS.put(System.CV_ENABLED,
+                new InclusiveIntegerRangeValidator(0, 1));
+        VALIDATORS.put(System.THREE_FINGER_GESTURE, BOOLEAN_VALIDATOR);
     }
 }
