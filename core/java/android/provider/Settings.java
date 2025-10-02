@@ -6532,6 +6532,21 @@ public final class Settings {
          */
 
         /**
+          * Three Finger Gesture from Oppo
+          * @hide
+          */
+         @Readable
+         public static final String THREE_FINGER_GESTURE = "three_finger_gesture";
+ 
+         /**
+          * Three Finger Gesture - flag for activation
+          * NOT for backup!
+          * @hide
+          */
+         @Readable
+         public static final String THREE_FINGER_GESTURE_ACTIVE = "three_finger_gesture_active";
+         
+        /**
          * Whether to play notification sound and vibration if screen is ON
          * 0 - never
          * 1 - always
