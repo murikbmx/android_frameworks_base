@@ -213,6 +213,22 @@ public class GlobalSettingsValidators {
         VALIDATORS.put(
                 Global.MUTE_ALARM_STREAM_WITH_RINGER_MODE_USER_PREFERENCE, BOOLEAN_VALIDATOR);
 
+        VALIDATORS.put(Global.BLUETOOTH_OFF_TIMEOUT,
+                 new DiscreteValueValidator(new String[] {
+                         "0",
+                         "15000",
+                         "30000",
+                         "60000",
+                         "120000",
+                         "300000",
+                         "600000",
+                         "1800000",
+                         "3600000",
+                         "7200000",
+                         "14400000",
+                         "28800000"
+                 }));
+                 
         VALIDATORS.put(Global.Wearable.HAS_PAY_TOKENS, BOOLEAN_VALIDATOR);
         VALIDATORS.put(Global.Wearable.GMS_CHECKIN_TIMEOUT_MIN, ANY_INTEGER_VALIDATOR);
         VALIDATORS.put(Global.Wearable.HOTWORD_DETECTION_ENABLED, BOOLEAN_VALIDATOR);

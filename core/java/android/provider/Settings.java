@@ -19916,6 +19916,12 @@ public final class Settings {
         public static final String REPAIR_MODE_ACTIVE = "repair_mode_active";
 
         /**
+         * The amount of time in milliseconds before bluetooth is turned off
+         * @hide
+         */
+        public static final String BLUETOOTH_OFF_TIMEOUT = "bluetooth_off_timeout";
+        
+        /**
          * Whether the notification manager service should redact notifications that contain otps
          * from untrusted listeners. Defaults to 1/true.
          * @hide
