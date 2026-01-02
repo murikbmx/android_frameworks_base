@@ -8239,11 +8239,6 @@ public final class ViewRootImpl implements ViewParent,
                 // If handwriting is started, toolkit doesn't receive ACTION_UP.
                 mLastClickToolType = event.getToolType(event.getActionIndex());
             }
-            
-            if (event.getPointerCount() == 3 && isSwipeToScreenshotGestureActive()) {
-                 event.setAction(MotionEvent.ACTION_CANCEL);
-                 Log.d("SwipeToScreenShot", "canceling motionEvent because of threeGesture detecting");
-            }
 
             mAttachInfo.mUnbufferedDispatchRequested = false;
             mAttachInfo.mHandlingPointerEvent = true;
@@ -13717,14 +13712,5 @@ public final class ViewRootImpl implements ViewParent,
      */
     public Choreographer getChoreographer() {
         return mChoreographer;
-    }
-    
-    private boolean isSwipeToScreenshotGestureActive() {
-         try {
-             return ActivityManager.getService().isSwipeToScreenshotGestureActive();
-         } catch (RemoteException e) {
-             Log.e("SwipeToScreenshot", "isSwipeToScreenshotGestureActive exception", e);
-             return false;
-         }
     }
 }
