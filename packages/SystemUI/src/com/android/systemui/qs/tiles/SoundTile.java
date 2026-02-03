@@ -129,8 +129,13 @@ public class SoundTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
+    protected void handleLongClick(@Nullable Expandable expandable) {
+        mAudioManager.adjustVolume(AudioManager.ADJUST_SAME, AudioManager.FLAG_SHOW_UI);
+    }
+
+    @Override
     public Intent getLongClickIntent() {
-        return new Intent(Settings.ACTION_SOUND_SETTINGS);
+        return null;
     }
 
     @Override
