@@ -135,4 +135,7 @@
     <string name="quick_settings_sound_ring">Ring</string>
     <string name="quick_settings_sound_vibrate">Vibrate</string>
     <string name="quick_settings_sound_silent">Silent</string>
+
+    <!-- DNS QS Tile -->
+    <string name="quick_settings_dns_no_hostname">Configure a DNS hostname via Settings first</string>
 </resources>
