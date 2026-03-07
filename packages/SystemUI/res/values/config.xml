@@ -925,7 +925,7 @@
     <bool name="config_enablePrivacyDot">true</bool>
 
     <!-- Flag to enable privacy chip animation, it shall be true for normal case -->
-    <bool name="config_enablePrivacyChipAnimation">true</bool>
+    <bool name="config_enablePrivacyChipAnimation">false</bool>
 
     <!-- Class for the communal source connector to be used -->
     <string name="config_communalSourceConnector" translatable="false"></string>
