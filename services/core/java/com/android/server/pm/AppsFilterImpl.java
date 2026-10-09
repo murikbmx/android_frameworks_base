@@ -606,7 +606,8 @@ public final class AppsFilterImpl extends AppsFilterLocked implements Watchable,
             }
         }
 
-        final boolean isGmsApp = GmsCompat.isEnabledFor(PackageExt.get(newPkg).getPackageId(), newPkg.getPackageName(), newPkgSetting.isPrivileged());
+        final int packageId = PackageExt.get(newPkg).getPackageId();
+        final boolean isGmsApp = GmsCompat.isEnabledFor(packageId, newPkgSetting.isPrivileged());
 
         final boolean newIsForceQueryable;
         synchronized (mForceQueryableLock) {
