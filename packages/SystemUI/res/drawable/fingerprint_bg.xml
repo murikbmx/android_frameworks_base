@@ -18,7 +18,7 @@
     android:shape="oval">
 
     <solid
-      android:color="@color/materialColorSurfaceContainer"/>
+      android:color="#00000000"/>
 
     <size
         android:width="64dp"
