@@ -159,7 +159,14 @@ class ModernStatusBarMobileView(context: Context, attrs: AttributeSet?) :
                 ),
             )
             typeView.layoutParams.height = size
+            // Lift the indicator above the bars so its last letter doesn't merge with them. The
+            // group is as tall as the status bar, so there is room above the signal frame.
+            container.translationY =
+                -res.getDimensionPixelSize(R.dimen.status_bar_mobile_type_overlay_offset).toFloat()
+            signalFrame.clipChildren = false
+            group.clipChildren = false
         } else {
+            container.translationY = 0f
             val lp = LinearLayout.LayoutParams(rowTypeContainerLayoutParams!!)
             var typeHeight = rowTypeHeight
             if (NewStatusBarIcons.isEnabled) {
