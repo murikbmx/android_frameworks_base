@@ -8406,6 +8406,25 @@ public final class Settings {
                 "ime_switcher_in_navbar_enabled";
 
         /**
+         * Whether to hide the space under the keyboard that the IME reserves for its own
+         * navigation bar.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String IME_NAV_BAR_SPACE_HIDDEN = "ime_nav_bar_space_hidden";
+
+        /**
+         * Whether to draw the mobile network type small over the signal icon in the status bar
+         * instead of next to it.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String STATUS_BAR_MOBILE_TYPE_OVERLAY =
+                "status_bar_mobile_type_overlay";
+
+        /**
          * Default value for {@link #STYLUS_HANDWRITING_ENABLED}.
          *
          * @hide

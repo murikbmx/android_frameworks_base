@@ -664,6 +664,10 @@ final class InputMethodSettings {
         return getInt(Settings.Secure.IME_SWITCHER_BUTTON_IN_NAVBAR_ENABLED, 1) == 1;
     }
 
+    boolean isImeNavBarSpaceHidden() {
+        return getInt(Settings.Secure.IME_NAV_BAR_SPACE_HIDDEN, 0) == 1;
+    }
+
     void dump(final Printer pw, final String prefix) {
         pw.println(prefix + "mUserId=" + mUserId);
     }
