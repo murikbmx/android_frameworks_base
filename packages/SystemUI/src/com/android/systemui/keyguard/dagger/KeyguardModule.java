@@ -58,6 +58,7 @@ import com.android.systemui.flags.SystemPropertiesHelper;
 import com.android.systemui.keyguard.DismissCallbackRegistry;
 import com.android.systemui.keyguard.KeyguardUnlockAnimationController;
 import com.android.systemui.keyguard.KeyguardViewMediator;
+import com.android.systemui.keyguard.LockscreenQsDisabler;
 import com.android.systemui.keyguard.WindowManagerLockscreenVisibilityManager;
 import com.android.systemui.keyguard.WindowManagerOcclusionManager;
 import com.android.systemui.keyguard.data.quickaffordance.KeyguardDataQuickAffordanceModule;
@@ -286,6 +287,12 @@ public interface KeyguardModule {
     @IntoMap
     @ClassKey(KeyguardUpdateMonitor.class)
     CoreStartable bindsKeyguardUpdateMonitor(KeyguardUpdateMonitor keyguardUpdateMonitor);
+
+    /** Binds {@link LockscreenQsDisabler} as a {@link CoreStartable}. */
+    @Binds
+    @IntoMap
+    @ClassKey(LockscreenQsDisabler.class)
+    CoreStartable bindsLockscreenQsDisabler(LockscreenQsDisabler lockscreenQsDisabler);
 
     /***/
     @Binds
