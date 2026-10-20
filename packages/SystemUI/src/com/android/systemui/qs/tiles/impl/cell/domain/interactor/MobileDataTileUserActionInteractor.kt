@@ -21,7 +21,6 @@ import android.content.Intent
 import android.provider.Settings
 import com.android.systemui.animation.DialogTransitionAnimator
 import com.android.systemui.animation.Expandable
-import com.android.systemui.animation.TransitionAnimator
 import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.qs.tiles.base.domain.actions.QSTileIntentUserInputHandler
 import com.android.systemui.qs.tiles.base.domain.interactor.QSTileUserActionInteractor
@@ -80,42 +79,8 @@ constructor(
 
     suspend fun handleSecondaryClick(expandable: Expandable?) {
         val activeRepo = getDataRepo() ?: return
-        // If mobile data is disabled, show a confirmation dialog to turn it on.
-        if (!activeRepo.dataEnabled.value) {
-            withContext(mainDispatcher) { showEnableConfirmationDialog(expandable) }
-        } else {
-            // Otherwise, just turn it off without a dialog.
-            activeRepo.setDataEnabled(false)
-        }
-    }
-
-    private fun showEnableConfirmationDialog(expandable: Expandable?) {
-        val dialog: SystemUIDialog = systemUIDialogFactory.create()
-        dialog.setTitle(context.getString(R.string.mobile_data_enable_title))
-        dialog.setMessage(context.getString(R.string.mobile_data_enable_message))
-
-        dialog.setPositiveButton(R.string.mobile_data_enable_turn_on) { _, _ ->
-            getDataRepo()?.setDataEnabled(true)
-        }
-
-        dialog.setNegativeButton(android.R.string.cancel) { _, _ -> /* Do nothing */ }
-
-        val controller = expandable?.dialogTransitionController()
-        if (controller != null) {
-            // If we have a controller, show the dialog using the animator.
-            if (TransitionAnimator.dynamicTargetResolutionEnabled()) {
-                dialogTransitionAnimator.show(
-                    dialog,
-                    expandable::dialogTransitionController,
-                    controller.cuj,
-                )
-            } else {
-                dialogTransitionAnimator.show(dialog, controller)
-            }
-        } else {
-            // Otherwise, show the dialog without the custom animation.
-            dialog.show()
-        }
+        // Toggle mobile data right away, without asking to confirm turning it on.
+        activeRepo.setDataEnabled(!activeRepo.dataEnabled.value)
     }
 
     private fun getDataRepo(): MobileConnectionRepository? {
