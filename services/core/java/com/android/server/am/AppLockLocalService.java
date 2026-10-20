@@ -28,17 +28,21 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManagerInternal;
 import android.content.pm.UserInfo;
+import android.database.ContentObserver;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Process;
 import android.os.Trace;
 import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
 import android.util.Slog;
 import android.util.SparseArray;
+import android.util.SparseLongArray;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
@@ -51,6 +55,7 @@ import com.android.server.wm.ActivityTaskManagerInternal;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -120,6 +125,43 @@ public final class AppLockLocalService implements AppLockInternal,
         mInjector = injector;
     }
 
+    /** Grace periods chosen by the users, read off the AMS lock. */
+    @GuardedBy("mGracePeriodsMillis")
+    private final SparseLongArray mGracePeriodsMillis = new SparseLongArray();
+
+    private final ContentObserver mGracePeriodObserver =
+            new ContentObserver(BackgroundThread.getHandler()) {
+                @Override
+                public void onChange(boolean selfChange, @NonNull Collection<Uri> uris, int flags,
+                        @NonNull UserHandle user) {
+                    readGracePeriod(user.getIdentifier());
+                }
+            };
+
+    private void readGracePeriod(int userId) {
+        final long gracePeriod = Settings.Secure.getLongForUser(
+                mAmService.mContext.getContentResolver(), Settings.Secure.APP_LOCK_GRACE_PERIOD,
+                DEFAULT_APP_LOCK_GRACE_PERIOD_MS.toMillis(), userId);
+        synchronized (mGracePeriodsMillis) {
+            mGracePeriodsMillis.put(userId, Math.max(0, gracePeriod));
+        }
+    }
+
+    /**
+     * Returns how long an app stays unlocked after the user leaves it. The setting is read on a
+     * background thread the first time, so the default is used until then.
+     */
+    private long getGracePeriodMillis(int userId) {
+        synchronized (mGracePeriodsMillis) {
+            final int index = mGracePeriodsMillis.indexOfKey(userId);
+            if (index >= 0) {
+                return mGracePeriodsMillis.valueAt(index);
+            }
+        }
+        BackgroundThread.getHandler().post(() -> readGracePeriod(userId));
+        return DEFAULT_APP_LOCK_GRACE_PERIOD_MS.toMillis();
+    }
+
     /**
      * Called by the {@link ActivityManagerService} once the system services are ready.
      */
@@ -133,6 +175,9 @@ public final class AppLockLocalService implements AppLockInternal,
             final KeyguardManager keyguardManager = context.getSystemService(KeyguardManager.class);
             keyguardManager.addDeviceLockedStateListener(BackgroundThread.getExecutor(),
                     /* listener= */ this);
+            context.getContentResolver().registerContentObserver(
+                    Settings.Secure.getUriFor(Settings.Secure.APP_LOCK_GRACE_PERIOD),
+                    /* notifyForDescendants= */ false, mGracePeriodObserver, UserHandle.USER_ALL);
         } finally {
             Trace.endSection();
         }
@@ -342,7 +387,7 @@ public final class AppLockLocalService implements AppLockInternal,
     private boolean isLastAuthWithinGracePeriod(String packageName, int userId) {
         final long lastSuccessfulAuth = getLastSuccessfulAuthTimeForLockedPackage(packageName,
                 userId);
-        return lastSuccessfulAuth + DEFAULT_APP_LOCK_GRACE_PERIOD_MS.toMillis()
+        return lastSuccessfulAuth + getGracePeriodMillis(userId)
                 > System.currentTimeMillis()
                 && lastSuccessfulAuth != AppLockLockedState.INVALID_AUTH_TIME_MS;
     }
@@ -637,8 +682,7 @@ public final class AppLockLocalService implements AppLockInternal,
 
         getOrCreateAppLockLockedStateLocked(packageName, userId).mLockedUpdateRunnable =
                 setPackageLocked;
-        mInjector.getHandler().postDelayed(setPackageLocked,
-                DEFAULT_APP_LOCK_GRACE_PERIOD_MS.toMillis());
+        mInjector.getHandler().postDelayed(setPackageLocked, getGracePeriodMillis(userId));
     }
 
     @Override
