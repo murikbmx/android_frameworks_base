@@ -77,4 +77,7 @@
     <string name="screenrecord_skip_time_summary">Убрать 3-х секундное ожидание</string>
     <string name="screenrecord_hevc_switch_label">Кодирование HEVC</string>
     <string name="screenrecord_hevc_switch_summary">Использовать более эффективный кодер HEVC</string>
+    <string name="keyguard_charging_details_current"><xliff:g id="current">%1$.1f</xliff:g> А</string>
+    <string name="keyguard_charging_details_power"><xliff:g id="power">%1$.1f</xliff:g> Вт</string>
+    <string name="keyguard_charging_details_temperature"><xliff:g id="temperature">%1$.1f</xliff:g> °C</string>
 </resources>

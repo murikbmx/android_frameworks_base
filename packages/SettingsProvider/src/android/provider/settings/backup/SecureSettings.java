@@ -351,6 +351,7 @@ public class SecureSettings {
         Settings.Secure.IME_NAV_BAR_SPACE_HIDDEN,
         Settings.Secure.LOCKSCREEN_POWER_MENU_DISABLED,
         Settings.Secure.LOCKSCREEN_QS_DISABLED,
+        Settings.Secure.LOCKSCREEN_CHARGING_DETAILS,
         Settings.Secure.RAISE_TRIGGER_DEFAULT_ASSISTANT,
     };
 }

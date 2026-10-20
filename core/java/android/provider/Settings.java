@@ -8432,6 +8432,15 @@ public final class Settings {
         @Readable
         public static final String LOCKSCREEN_QS_DISABLED = "lockscreen_qs_disabled";
 
+        /**
+         * Whether the lock screen shows the charging current, power and battery temperature
+         * while charging.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String LOCKSCREEN_CHARGING_DETAILS = "lockscreen_charging_details";
+
 
         /**
          * Default value for {@link #STYLUS_HANDWRITING_ENABLED}.
