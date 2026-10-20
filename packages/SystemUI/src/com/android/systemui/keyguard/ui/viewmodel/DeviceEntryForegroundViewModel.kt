@@ -61,12 +61,9 @@ constructor(
             startedKeyguardStep.to == KeyguardState.AOD || dozingTransitionValue == 1f
         }
 
-    private fun getColor(usingBackgroundProtection: Boolean): Int {
-        return if (usingBackgroundProtection) {
-            Utils.getColorAttrDefaultColor(context, android.R.attr.textColorPrimary)
-        } else {
-            Utils.getColorAttrDefaultColor(context, R.attr.wallpaperTextColorAccent)
-        }
+    // The background protection is transparent, so always tint against the wallpaper.
+    private fun getColor(): Int {
+        return Utils.getColorAttrDefaultColor(context, R.attr.wallpaperTextColor)
     }
 
     // While dozing, the display can show the AOD UI; show the AOD udfps when dozing
@@ -85,12 +82,9 @@ constructor(
                 if (useAodVariant) {
                     flowOf(android.graphics.Color.WHITE)
                 } else {
-                    deviceEntryIconViewModel.useBackgroundProtection.flatMapLatest { useBgProtection
-                        ->
-                        configurationInteractor.onAnyConfigurationChange
-                            .map { getColor(useBgProtection) }
-                            .onStart { emit(getColor(useBgProtection)) }
-                    }
+                    configurationInteractor.onAnyConfigurationChange
+                        .map { getColor() }
+                        .onStart { emit(getColor()) }
                 }
             }
             .distinctUntilChanged()
