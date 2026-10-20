@@ -350,6 +350,7 @@ public class SecureSettings {
         Settings.Secure.IME_SWITCHER_BUTTON_IN_NAVBAR_ENABLED,
         Settings.Secure.IME_NAV_BAR_SPACE_HIDDEN,
         Settings.Secure.LOCKSCREEN_POWER_MENU_DISABLED,
+        Settings.Secure.LOCKSCREEN_QS_DISABLED,
         Settings.Secure.RAISE_TRIGGER_DEFAULT_ASSISTANT,
     };
 }

@@ -8424,6 +8424,14 @@ public final class Settings {
         public static final String LOCKSCREEN_POWER_MENU_DISABLED =
                 "lockscreen_power_menu_disabled";
 
+        /**
+         * Whether quick settings can't be expanded while a secure lock screen is showing.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String LOCKSCREEN_QS_DISABLED = "lockscreen_qs_disabled";
+
 
         /**
          * Default value for {@link #STYLUS_HANDWRITING_ENABLED}.
