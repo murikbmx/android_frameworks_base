@@ -35,6 +35,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.android.app.tracing.coroutines.launchTraced as launch
 import com.android.internal.graphics.drawable.BackgroundBlurDrawable
 import com.android.keyguard.logging.KeyguardQuickAffordancesLogger
+import com.android.settingslib.Utils
 import com.android.systemui.Flags.enableLockscreenBlur
 import com.android.systemui.animation.Expandable
 import com.android.systemui.animation.view.LaunchableImageView
@@ -224,14 +225,13 @@ constructor(
         }
 
         view.isActivated = viewModel.isActivated
+        // The affordance background is transparent, so tint the icon against the wallpaper.
         view.drawable.setTint(
-            view.context.getColor(
-                if (viewModel.isActivated) {
-                    com.android.internal.R.color.materialColorOnPrimaryFixed
-                } else {
-                    com.android.internal.R.color.materialColorOnSurface
-                }
-            )
+            if (viewModel.isActivated) {
+                view.context.getColor(com.android.internal.R.color.materialColorPrimaryFixed)
+            } else {
+                Utils.getColorAttrDefaultColor(view.context, R.attr.wallpaperTextColor)
+            }
         )
         updateBackground(
             viewModel,
