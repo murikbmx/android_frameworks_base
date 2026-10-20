@@ -20,7 +20,6 @@ import android.content.Context
 import android.content.res.Configuration
 import android.util.AttributeSet
 import android.view.LayoutInflater
-import android.widget.FrameLayout
 import android.widget.ImageView
 import com.android.keyguard.AlphaOptimizedLinearLayout
 import com.android.systemui.kairos.KairosNetwork
@@ -82,25 +81,7 @@ class ModernStatusBarMobileView(context: Context, attrs: AttributeSet?) :
                 )
         }
 
-        // RAT indicator container
-        requireViewById<FrameLayout>(R.id.mobile_type_container).apply {
-            // marginStart is moved to the outer group
-            (layoutParams as MarginLayoutParams).marginStart = 0
-            (layoutParams as MarginLayoutParams).marginEnd =
-                context.resources.getDimensionPixelSize(
-                    R.dimen.status_bar_mobile_type_container_margin_end
-                )
-            layoutParams.height =
-                context.resources.getDimensionPixelSize(
-                    R.dimen.status_bar_mobile_container_height_updated
-                )
-        }
-
-        // RAT indicator
-        requireViewById<ImageView>(R.id.mobile_type).apply {
-            layoutParams.height =
-                context.resources.getDimensionPixelSize(R.dimen.status_bar_mobile_type_size_updated)
-        }
+        // The RAT indicator is overlaid on the triangle, its size comes from the layout.
     }
 
     companion object {
