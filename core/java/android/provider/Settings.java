@@ -8415,14 +8415,15 @@ public final class Settings {
         public static final String IME_NAV_BAR_SPACE_HIDDEN = "ime_nav_bar_space_hidden";
 
         /**
-         * Whether to draw the mobile network type small over the signal icon in the status bar
-         * instead of next to it.
+         * Whether the power menu requires the device to be unlocked first while a secure
+         * lock screen is showing.
          *
          * @hide
          */
         @Readable
-        public static final String STATUS_BAR_MOBILE_TYPE_OVERLAY =
-                "status_bar_mobile_type_overlay";
+        public static final String LOCKSCREEN_POWER_MENU_DISABLED =
+                "lockscreen_power_menu_disabled";
+
 
         /**
          * Default value for {@link #STYLUS_HANDWRITING_ENABLED}.

@@ -17,7 +17,10 @@ package com.android.systemui.globalactions;
 import static android.app.StatusBarManager.DISABLE2_GLOBAL_ACTIONS;
 
 import android.content.Context;
+import android.os.UserHandle;
+import android.provider.Settings;
 
+import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.GlobalActions;
 import com.android.systemui.shade.ShadeController;
 import com.android.systemui.statusbar.CommandQueue;
@@ -36,6 +39,7 @@ public class GlobalActionsImpl implements GlobalActions, CommandQueue.Callbacks 
     private boolean mDisabled;
     private ShutdownUi mShutdownUi;
     private ShadeController mShadeController;
+    private final ActivityStarter mActivityStarter;
 
     @Inject
     public GlobalActionsImpl(Context context, CommandQueue commandQueue,
@@ -43,7 +47,8 @@ public class GlobalActionsImpl implements GlobalActions, CommandQueue.Callbacks 
             KeyguardStateController keyguardStateController,
             DeviceProvisionedController deviceProvisionedController,
             ShadeController shadeController,
-            ShutdownUi shutdownUi) {
+            ShutdownUi shutdownUi,
+            ActivityStarter activityStarter) {
         mContext = context;
         mGlobalActionsDialog = globalActionsDialog;
         mKeyguardStateController = keyguardStateController;
@@ -52,6 +57,7 @@ public class GlobalActionsImpl implements GlobalActions, CommandQueue.Callbacks 
         mCommandQueue.addCallback(this);
         mShutdownUi = shutdownUi;
         mShadeController = shadeController;
+        mActivityStarter = activityStarter;
     }
 
     @Override
@@ -63,6 +69,7 @@ public class GlobalActionsImpl implements GlobalActions, CommandQueue.Callbacks 
     @Override
     public void showOrHideGlobalActions(GlobalActionsManager manager) {
         if (mDisabled) return;
+        if (showAfterUnlockIfNeeded()) return;
         mGlobalActionsDialog.showOrHideDialog(mKeyguardStateController.isShowing(),
                 mDeviceProvisionedController.isDeviceProvisioned(), null /* view */,
                 mContext.getDisplayId());
@@ -71,9 +78,34 @@ public class GlobalActionsImpl implements GlobalActions, CommandQueue.Callbacks 
     @Override
     public void showGlobalActions(GlobalActionsManager manager) {
         if (mDisabled) return;
+        if (showAfterUnlockIfNeeded()) return;
         mGlobalActionsDialog.showDialog(mKeyguardStateController.isShowing(),
                 mDeviceProvisionedController.isDeviceProvisioned(), null /* view */,
                 mContext.getDisplayId());
+    }
+
+    /**
+     * Asks the user to unlock first when the power menu is disabled on a secure lock screen, so
+     * a stolen device can't be powered off right away. The menu is shown once unlocked.
+     *
+     * @return true if the menu will be shown after unlocking instead of right away.
+     */
+    private boolean showAfterUnlockIfNeeded() {
+        if (!mKeyguardStateController.isShowing()
+                || !mKeyguardStateController.isMethodSecure()
+                || mKeyguardStateController.isUnlocked()
+                || Settings.Secure.getIntForUser(mContext.getContentResolver(),
+                        Settings.Secure.LOCKSCREEN_POWER_MENU_DISABLED, 0,
+                        UserHandle.USER_CURRENT) == 0) {
+            return false;
+        }
+        mActivityStarter.dismissKeyguardThenExecute(() -> {
+            mGlobalActionsDialog.showDialog(false /* keyguardShowing */,
+                    mDeviceProvisionedController.isDeviceProvisioned(), null /* view */,
+                    mContext.getDisplayId());
+            return false;
+        }, null /* cancelAction */, true /* afterKeyguardGone */);
+        return true;
     }
 
     @Override

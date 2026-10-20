@@ -349,7 +349,7 @@ public class SecureSettings {
         Settings.Secure.LIGHT_ANIMATION_FAVORITE_CALLS_ENABLED,
         Settings.Secure.IME_SWITCHER_BUTTON_IN_NAVBAR_ENABLED,
         Settings.Secure.IME_NAV_BAR_SPACE_HIDDEN,
-        Settings.Secure.STATUS_BAR_MOBILE_TYPE_OVERLAY,
+        Settings.Secure.LOCKSCREEN_POWER_MENU_DISABLED,
         Settings.Secure.RAISE_TRIGGER_DEFAULT_ASSISTANT,
     };
 }
