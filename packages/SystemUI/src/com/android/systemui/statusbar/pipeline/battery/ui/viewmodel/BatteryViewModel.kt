@@ -87,7 +87,8 @@ sealed class BatteryViewModel(
             when (it) {
                 Charging -> BatteryGlyph.Bolt
 
-                PowerSave -> BatteryGlyph.Plus
+                // Battery saver is shown by the color profile only, keep the regular cap
+                PowerSave -> null
 
                 Defend -> BatteryGlyph.Defend
 
