@@ -8415,6 +8415,14 @@ public final class Settings {
         public static final String IME_NAV_BAR_SPACE_HIDDEN = "ime_nav_bar_space_hidden";
 
         /**
+         * Time in milliseconds an app locked by App Lock stays unlocked after the user leaves it.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String APP_LOCK_GRACE_PERIOD = "app_lock_grace_period";
+
+        /**
          * Whether the power menu requires the device to be unlocked first while a secure
          * lock screen is showing.
          *
