@@ -881,7 +881,8 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                 updateInputMethodsFromSettingsLocked(enabledChanged, userId);
                 break;
             }
-            case Settings.Secure.IME_SWITCHER_BUTTON_IN_NAVBAR_ENABLED: {
+            case Settings.Secure.IME_SWITCHER_BUTTON_IN_NAVBAR_ENABLED:
+            case Settings.Secure.IME_NAV_BAR_SPACE_HIDDEN: {
                 final var userData = getUserData(userId);
                 updateSystemUiLocked(userId);
                 sendOnNavButtonFlagsChangedLocked(userData);
@@ -1767,6 +1768,7 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                                 Settings.Secure.SELECTED_INPUT_METHOD_SUBTYPE,
                                 Settings.Secure.STYLUS_HANDWRITING_ENABLED,
                                 Settings.Secure.IME_SWITCHER_BUTTON_IN_NAVBAR_ENABLED,
+                                Settings.Secure.IME_NAV_BAR_SPACE_HIDDEN,
                         }, (key, flags, userId) -> {
                             synchronized (ImfLock.class) {
                                 onSecureSettingsChangedLocked(key, userId);
@@ -2952,7 +2954,11 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
         final int curDisplayId = userData.mBindingController.getCurDisplayId();
         final boolean hasNavigationBar = mWindowManagerInternal
                 .hasNavigationBar(curDisplayId != INVALID_DISPLAY ? curDisplayId : DEFAULT_DISPLAY);
-        final boolean imeDrawsImeNavBar = userData.mImeDrawsNavBar.get() && hasNavigationBar;
+        // Without the IME navigation bar the IME does not reserve any space under the keyboard.
+        final boolean imeNavBarSpaceHidden =
+                InputMethodSettingsRepository.get(userId).isImeNavBarSpaceHidden();
+        final boolean imeDrawsImeNavBar = userData.mImeDrawsNavBar.get() && hasNavigationBar
+                && !imeNavBarSpaceHidden;
         final boolean showImeSwitcherButton = shouldShowImeSwitcherButtonLocked(userId);
         final boolean isImeSwitcherButtonInNavbarEnabled =
                 !Flags.imeSwitcherButtonInNavbarSetting() || InputMethodSettingsRepository.get(
