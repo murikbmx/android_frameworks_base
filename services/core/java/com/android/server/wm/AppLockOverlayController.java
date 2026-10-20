@@ -240,10 +240,21 @@ final class AppLockOverlayController {
      */
     @GuardedBy("mWmService.mGlobalLock")
     boolean hasVisibleNonLockedTaskForPackage(@NonNull String packageName, int userId) {
+        return hasVisibleNonLockedTaskForPackage(packageName, userId, null /* excludedTask */);
+    }
+
+    /**
+     * Same as {@link #hasVisibleNonLockedTaskForPackage(String, int)}, but ignores
+     * {@code excludedTask}.
+     */
+    @GuardedBy("mWmService.mGlobalLock")
+    private boolean hasVisibleNonLockedTaskForPackage(@NonNull String packageName, int userId,
+            @Nullable Task excludedTask) {
         Objects.requireNonNull(packageName);
 
         return getRootWindowContainer().getTask(task ->
-                task.mUserId == userId
+                task != excludedTask
+                        && task.mUserId == userId
                         && task.isVisibleRequested()
                         && task.realActivity != null
                         && packageName.equals(task.realActivity.getPackageName())
@@ -575,9 +586,11 @@ final class AppLockOverlayController {
         //  visibility changes.
         final String packageName = activity.packageName;
         final int userId = activity.mUserId;
+        // The task of the activity itself doesn't count: it's already visible requested while
+        // it's brought to front, e.g. from Recents, which would otherwise skip the overlay.
         return packageName != null
                 && mWmService.isPackageLockedByAppLockLocked(packageName, userId)
-                && !hasVisibleNonLockedTaskForPackage(packageName, userId);
+                && !hasVisibleNonLockedTaskForPackage(packageName, userId, activity.getTask());
     }
 
     /**
