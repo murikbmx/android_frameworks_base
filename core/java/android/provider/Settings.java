@@ -8425,6 +8425,59 @@ public final class Settings {
                 "status_bar_mobile_type_overlay";
 
         /**
+         * How the LTE network type is shown: 0 follows the carrier configuration, 1 always
+         * shows LTE and 2 always shows 4G.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String STATUS_BAR_LTE_ICON_STYLE = "status_bar_lte_icon_style";
+
+        /**
+         * Time in milliseconds an app locked by App Lock stays unlocked after the user leaves it.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String APP_LOCK_GRACE_PERIOD = "app_lock_grace_period";
+
+        /**
+         * Whether the power menu requires the device to be unlocked first while a secure
+         * lock screen is showing.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String LOCKSCREEN_POWER_MENU_DISABLED =
+                "lockscreen_power_menu_disabled";
+
+        /**
+         * Whether quick settings can't be expanded while a secure lock screen is showing.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String LOCKSCREEN_QS_DISABLED = "lockscreen_qs_disabled";
+
+        /**
+         * Whether the lock screen shows the charging current, power and battery temperature
+         * while charging.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String LOCKSCREEN_CHARGING_DETAILS = "lockscreen_charging_details";
+
+        /**
+         * Time in milliseconds after which the clipboard is cleared, or 0 to use the default
+         * timeout of one hour.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String CLIPBOARD_AUTO_CLEAR_TIMEOUT = "clipboard_auto_clear_timeout";
+
+        /**
          * Default value for {@link #STYLUS_HANDWRITING_ENABLED}.
          *
          * @hide
