@@ -73,6 +73,7 @@ import android.os.Message;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.util.Pair;
@@ -134,6 +135,8 @@ import dagger.Lazy;
 
 import java.io.PrintWriter;
 import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -660,6 +663,10 @@ public class KeyguardIndicationController {
     private void updateLockScreenBatteryMsg(boolean animate) {
         if (mBatteryPresent && (mPowerPluggedIn || mEnableBatteryDefender)) {
             String powerIndication = computePowerIndication();
+            String chargingDetails = computeChargingDetails();
+            if (chargingDetails != null) {
+                powerIndication += " • " + chargingDetails;
+            }
             if (DEBUG_CHARGING_SPEED) {
                 powerIndication += ",  " + (mChargingWattage / 1000) + " mW";
             }
@@ -1229,6 +1236,49 @@ public class KeyguardIndicationController {
     /**
      * Assumption: device is charging
      */
+    /**
+     * Returns the charging current, power and battery temperature joined into one line, or null
+     * if the user didn't enable them or nothing is reported by the device.
+     */
+    @Nullable
+    private String computeChargingDetails() {
+        if (!mPowerPluggedIn || mPowerCharged || Settings.Secure.getIntForUser(
+                mContext.getContentResolver(), Settings.Secure.LOCKSCREEN_CHARGING_DETAILS, 0,
+                UserHandle.USER_CURRENT) == 0) {
+            return null;
+        }
+        final Intent batteryIntent = mContext.registerReceiver(null,
+                new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        if (batteryIntent == null) {
+            return null;
+        }
+        final Resources res = mContext.getResources();
+        final List<String> details = new ArrayList<>();
+
+        // The current is reported in microamperes, its sign depends on the device.
+        final BatteryManager batteryManager = mContext.getSystemService(BatteryManager.class);
+        final int currentMicroAmps = batteryManager == null ? Integer.MIN_VALUE
+                : batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
+        final int voltageMilliVolts = batteryIntent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0);
+        if (currentMicroAmps != Integer.MIN_VALUE && currentMicroAmps != 0) {
+            final float amps = Math.abs(currentMicroAmps) / 1_000_000f;
+            details.add(res.getString(R.string.keyguard_charging_details_current, amps));
+            if (voltageMilliVolts > 0) {
+                details.add(res.getString(R.string.keyguard_charging_details_power,
+                        amps * voltageMilliVolts / 1000f));
+            }
+        }
+
+        // The temperature is reported in tenths of a degree Celsius.
+        final int temperature = batteryIntent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE,
+                Integer.MIN_VALUE);
+        if (temperature != Integer.MIN_VALUE) {
+            details.add(res.getString(R.string.keyguard_charging_details_temperature,
+                    temperature / 10f));
+        }
+        return details.isEmpty() ? null : String.join(" · ", details);
+    }
+
     protected String computePowerIndication() {
         if (mBatteryDefender) {
             String percentage = NumberFormat.getPercentInstance().format(mBatteryLevel / 100f);
