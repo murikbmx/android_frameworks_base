@@ -638,21 +638,14 @@ public class ClipboardService extends SystemService {
                                     intendingUid,
                                     userIdDeviceId);
                     mClipboardClearHandler.sendMessageDelayed(clearMessage,
-                            getTimeoutForAutoClear(userId));
+                            getTimeoutForAutoClear());
                 }
             } finally {
                 Binder.restoreCallingIdentity(oldIdentity);
             }
         }
 
-        private long getTimeoutForAutoClear(@UserIdInt int userId) {
-            // A timeout chosen by the user takes precedence over the default one.
-            final long userTimeout = Settings.Secure.getLongForUser(
-                    getContext().getContentResolver(),
-                    Settings.Secure.CLIPBOARD_AUTO_CLEAR_TIMEOUT, 0, userId);
-            if (userTimeout > 0) {
-                return userTimeout;
-            }
+        private long getTimeoutForAutoClear() {
             return DeviceConfig.getLong(DeviceConfig.NAMESPACE_CLIPBOARD,
                     PROPERTY_AUTO_CLEAR_TIMEOUT,
                     DEFAULT_CLIPBOARD_TIMEOUT_MILLIS);
