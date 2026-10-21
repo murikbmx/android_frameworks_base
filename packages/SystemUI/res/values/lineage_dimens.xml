@@ -18,9 +18,4 @@
 <resources>
     <!-- Largest size an avatar might need to be drawn in the power menu user picker -->
     <dimen name="global_actions_avatar_size">24dp</dimen>
-
-    <!-- VoLTE / VoWiFi badge next to the carrier name in the shade header -->
-    <dimen name="shade_ims_status_text_size">10sp</dimen>
-    <dimen name="shade_ims_status_stroke_width">1dp</dimen>
-    <dimen name="shade_ims_status_corner_radius">3dp</dimen>
 </resources>

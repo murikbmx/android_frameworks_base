@@ -8442,15 +8442,6 @@ public final class Settings {
         public static final String APP_LOCK_GRACE_PERIOD = "app_lock_grace_period";
 
         /**
-         * Whether the shade header shows VoLTE or VoWiFi next to the carrier name while IMS is
-         * registered.
-         *
-         * @hide
-         */
-        @Readable
-        public static final String SHADE_IMS_STATUS = "shade_ims_status";
-
-        /**
          * Whether the power menu requires the device to be unlocked first while a secure
          * lock screen is showing.
          *

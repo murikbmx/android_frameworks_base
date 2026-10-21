@@ -352,7 +352,6 @@ public class SecureSettings {
         Settings.Secure.STATUS_BAR_MOBILE_TYPE_OVERLAY,
         Settings.Secure.STATUS_BAR_LTE_ICON_STYLE,
         Settings.Secure.APP_LOCK_GRACE_PERIOD,
-        Settings.Secure.SHADE_IMS_STATUS,
         Settings.Secure.LOCKSCREEN_POWER_MENU_DISABLED,
         Settings.Secure.LOCKSCREEN_QS_DISABLED,
         Settings.Secure.LOCKSCREEN_CHARGING_DETAILS,

@@ -38,21 +38,6 @@
         android:singleLine="true"
         android:maxEms="7"/>
 
-    <!-- VoLTE or VoWiFi in an outlined badge, see ModernShadeCarrierGroupMobileView -->
-    <TextView
-        android:id="@+id/mobile_ims_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:layout_marginEnd="@dimen/qs_carrier_margin_width"
-        android:paddingHorizontal="3dp"
-        android:paddingVertical="1dp"
-        android:includeFontPadding="false"
-        android:textAppearance="@style/TextAppearance.QS.Status"
-        android:textSize="@dimen/shade_ims_status_text_size"
-        android:visibility="gone"
-        android:singleLine="true"/>
-
     <include layout="@layout/status_bar_mobile_signal_group_new" />
 
 </com.android.systemui.statusbar.pipeline.mobile.ui.view.ModernShadeCarrierGroupMobileView>
