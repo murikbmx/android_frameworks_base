@@ -8451,14 +8451,6 @@ public final class Settings {
         @Readable
         public static final String LOCKSCREEN_CHARGING_DETAILS = "lockscreen_charging_details";
 
-        /**
-         * Time in milliseconds after which the clipboard is cleared, or 0 to use the default
-         * timeout of one hour.
-         *
-         * @hide
-         */
-        @Readable
-        public static final String CLIPBOARD_AUTO_CLEAR_TIMEOUT = "clipboard_auto_clear_timeout";
 
         /**
          * Default value for {@link #STYLUS_HANDWRITING_ENABLED}.

@@ -353,7 +353,6 @@ public class SecureSettings {
         Settings.Secure.LOCKSCREEN_POWER_MENU_DISABLED,
         Settings.Secure.LOCKSCREEN_QS_DISABLED,
         Settings.Secure.LOCKSCREEN_CHARGING_DETAILS,
-        Settings.Secure.CLIPBOARD_AUTO_CLEAR_TIMEOUT,
         Settings.Secure.RAISE_TRIGGER_DEFAULT_ASSISTANT,
     };
 }
