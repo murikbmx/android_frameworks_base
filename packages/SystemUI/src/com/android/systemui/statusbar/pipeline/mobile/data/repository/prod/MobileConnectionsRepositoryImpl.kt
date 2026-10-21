@@ -21,7 +21,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.provider.Settings
 import android.telephony.CarrierConfigManager
 import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
@@ -45,7 +44,6 @@ import com.android.systemui.dump.DumpManager
 import com.android.systemui.log.table.TableLogBuffer
 import com.android.systemui.log.table.logDiffsForTable
 import com.android.systemui.res.R
-import com.android.systemui.shared.settings.data.repository.SecureSettingsRepository
 import com.android.systemui.statusbar.pipeline.airplane.data.repository.AirplaneModeRepository
 import com.android.systemui.statusbar.pipeline.dagger.MobileSummaryLog
 import com.android.systemui.statusbar.pipeline.mobile.data.MobileInputLogger
@@ -108,7 +106,6 @@ constructor(
     private val fullMobileRepoFactory: FullMobileConnectionRepository.Factory,
     private val keyguardUpdateMonitor: KeyguardUpdateMonitor,
     private val dumpManager: DumpManager,
-    secureSettingsRepository: SecureSettingsRepository,
 ) : MobileConnectionsRepository, Dumpable {
 
     // TODO(b/333912012): for now, we are never invalidating the cache. We can do better though
@@ -307,11 +304,8 @@ constructor(
             .broadcastFlow(IntentFilter(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED))
             .onEach { logger.logActionCarrierConfigChanged() }
 
-    private val lteIconStyleChangedEvent =
-        secureSettingsRepository.intSetting(Settings.Secure.STATUS_BAR_LTE_ICON_STYLE)
-
     override val defaultDataSubRatConfig: StateFlow<Config?> =
-        merge(defaultDataSubId, carrierConfigChangedEvent, lteIconStyleChangedEvent)
+        merge(defaultDataSubId, carrierConfigChangedEvent)
             .onStart { emit(Unit) }
             .mapLatest { Config.readConfig(context) }
             .distinctUntilChanged()
