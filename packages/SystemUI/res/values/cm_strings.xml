@@ -130,6 +130,10 @@
     <string name="screenrecord_hevc_switch_label">HEVC encoding</string>
     <string name="screenrecord_hevc_switch_summary">Use the more efficient HEVC encoder</string>
 
+    <!-- IMS registration shown next to the carrier name in the shade header -->
+    <string name="shade_ims_status_volte" translatable="false">VoLTE</string>
+    <string name="shade_ims_status_vowifi" translatable="false">VoWiFi</string>
+
     <!-- Lock screen charging details, appended to the charging indication -->
     <string name="keyguard_charging_details_current"><xliff:g id="current">%1$.1f</xliff:g> A</string>
     <string name="keyguard_charging_details_power"><xliff:g id="power">%1$.1f</xliff:g> W</string>
