@@ -89,6 +89,11 @@ public final class AppLockLocalService implements AppLockInternal,
     private static final boolean DEBUG = Build.isDebuggable() && Log.isLoggable(TAG, Log.DEBUG);
     // TODO(b/454308946): Update grace period to be configurable
     private static final Duration DEFAULT_APP_LOCK_GRACE_PERIOD_MS = Duration.ofMillis(5000L);
+    // Minimum time a package stays unlocked after a successful authentication. Even with an
+    // immediate grace period, the app needs a moment to come to the foreground after the prompt.
+    // Without it, an App Lock overlay still covering the app sees the package as locked and asks
+    // to authenticate again.
+    private static final long MIN_UNLOCK_AFTER_AUTH_MS = 2000L;
 
     private final Object mLock = new Object();
 
@@ -387,7 +392,7 @@ public final class AppLockLocalService implements AppLockInternal,
     private boolean isLastAuthWithinGracePeriod(String packageName, int userId) {
         final long lastSuccessfulAuth = getLastSuccessfulAuthTimeForLockedPackage(packageName,
                 userId);
-        return lastSuccessfulAuth + getGracePeriodMillis(userId)
+        return lastSuccessfulAuth + Math.max(getGracePeriodMillis(userId), MIN_UNLOCK_AFTER_AUTH_MS)
                 > System.currentTimeMillis()
                 && lastSuccessfulAuth != AppLockLockedState.INVALID_AUTH_TIME_MS;
     }
