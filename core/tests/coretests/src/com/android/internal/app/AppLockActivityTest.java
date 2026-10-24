@@ -137,6 +137,9 @@ public class AppLockActivityTest {
         AppLockActivity.setInjectorForTesting(mInjector);
 
         when(mInjector.getBiometricPromptBuilder(any())).thenReturn(mBiometricPromptBuilder);
+        // Keep the icon as is, the launcher settings are not part of these tests
+        when(mInjector.styleLauncherIcon(any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
         when(mBiometricPromptBuilder.setTitle(any())).thenReturn(mBiometricPromptBuilder);
         when(mBiometricPromptBuilder.setSubtitle(any())).thenReturn(mBiometricPromptBuilder);
         when(mBiometricPromptBuilder.setLogoDescription(any())).thenReturn(mBiometricPromptBuilder);

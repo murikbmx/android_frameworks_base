@@ -362,7 +362,8 @@ public class AppLockActivity extends Activity {
                        | Authenticators.DEVICE_CREDENTIAL);
 
         // Retrieve package logo and set it as biometric prompt's logo.
-        final Bitmap packageLogo = convertDrawableToBitmap(getPackageLogoAsDrawable(packageName));
+        final Bitmap packageLogo = convertDrawableToBitmap(
+                mInjector.styleLauncherIcon(this, getPackageLogoAsDrawable(packageName)));
         if (packageLogo != null) {
             biometricPromptBuilder.setLogoBitmap(packageLogo);
         }
@@ -560,6 +561,15 @@ public class AppLockActivity extends Activity {
         /** Returns a new {@link BiometricPrompt.Builder} for the given activity. */
         public BiometricPrompt.Builder getBiometricPromptBuilder(Activity activity) {
             return new BiometricPrompt.Builder(activity);
+        }
+
+        /**
+         * Styles the app icon like the launcher shows it: monochrome when themed icons are
+         * enabled, and cropped to the selected icon shape.
+         */
+        @Nullable
+        public Drawable styleLauncherIcon(Activity activity, @Nullable Drawable icon) {
+            return LockedAppIconStyler.apply(activity, icon);
         }
     }
 }
