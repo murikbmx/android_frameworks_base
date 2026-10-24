@@ -310,7 +310,8 @@ public final class LockedAppActivity extends Activity {
             finish();
             return;
         }
-        mPackageLogo = convertDrawableToBitmap(getPackageLogo(mPackageName));
+        mPackageLogo = convertDrawableToBitmap(
+                mInjector.styleLauncherIcon(this, getPackageLogo(mPackageName)));
 
         if (!mIsUninstall) {
             // Register locked state listener. This is unnecessary for the uninstall flow
@@ -749,6 +750,19 @@ public final class LockedAppActivity extends Activity {
          */
         public void setTheme(Activity activity, int resId) {
             activity.setTheme(resId);
+        }
+
+        /**
+         * Styles the app icon like the launcher shows it: monochrome when themed icons are
+         * enabled, and cropped to the selected icon shape.
+         *
+         * @param activity the activity used to query the launcher.
+         * @param icon     the app icon to style.
+         * @return the styled icon, or the original icon if it can't be styled.
+         */
+        @Nullable
+        public Drawable styleLauncherIcon(Activity activity, @Nullable Drawable icon) {
+            return LockedAppIconStyler.apply(activity, icon);
         }
 
         /**

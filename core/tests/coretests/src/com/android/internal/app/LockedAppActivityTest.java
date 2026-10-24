@@ -1016,6 +1016,12 @@ public class LockedAppActivityTest {
         private boolean mHasWindowFocus = true;
 
         @Override
+        public Drawable styleLauncherIcon(Activity activity, Drawable icon) {
+            // Keep the icon as is, the launcher settings are not part of these tests
+            return icon;
+        }
+
+        @Override
         public void setTheme(Activity activity, int resId) {
             mThemeResId = resId;
         }
