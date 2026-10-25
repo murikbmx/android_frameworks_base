@@ -25,6 +25,9 @@ import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -41,6 +44,7 @@ import android.util.Slog;
 
 import com.android.internal.os.BackgroundThread;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -48,9 +52,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Styles an app icon like the launcher does: monochrome when themed icons are enabled, and
- * cropped to the selected icon shape. The settings are read from the launcher's customization
- * provider, the same one the wallpaper & style picker uses.
+ * Styles an app icon like the launcher does: monochrome when themed icons are enabled (generated
+ * from the colored icon if the app doesn't provide one), and cropped to the selected icon shape.
+ * The settings are read from the launcher's customization provider, the same one the wallpaper &
+ * style picker uses.
  */
 final class LockedAppIconStyler {
     private static final String TAG = "LockedAppIconStyler";
@@ -197,9 +202,10 @@ final class LockedAppIconStyler {
     /** Same as the launcher's themed adaptive icon: monochrome layer on a solid background. */
     private static AdaptiveIconDrawable createThemedIcon(Context context,
             AdaptiveIconDrawable icon) {
-        final Drawable monochrome = icon.getMonochrome();
+        Drawable monochrome = icon.getMonochrome();
         if (monochrome == null) {
-            return icon;
+            // The launcher generates a monochrome layer for apps that don't provide one
+            monochrome = createMonochrome(context, icon);
         }
         final boolean isNight = context.getResources().getConfiguration().isNightModeActive();
         final int bgColor = context.getColor(isNight
@@ -209,6 +215,72 @@ final class LockedAppIconStyler {
         final Drawable foreground = monochrome.mutate();
         foreground.setTint(fgColor);
         return new AdaptiveIconDrawable(new ColorDrawable(bgColor), foreground);
+    }
+
+    /**
+     * Same as the launcher's MonochromeIconFactory: flattens the icon layers, turns their
+     * brightness into alpha and stretches the contrast. The result is a full-bleed layer.
+     */
+    private static Drawable createMonochrome(Context context, AdaptiveIconDrawable icon) {
+        int iconSize = Math.max(icon.getIntrinsicWidth(), icon.getIntrinsicHeight());
+        if (iconSize <= 0) {
+            iconSize = FALLBACK_ICON_SIZE_PX;
+        }
+        final int size = Math.round(
+                iconSize * (1 + 2 * AdaptiveIconDrawable.getExtraInsetFraction()));
+
+        final Bitmap flatBitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        final Canvas flatCanvas = new Canvas(flatBitmap);
+        flatCanvas.drawColor(Color.BLACK);
+        final Drawable background = icon.getBackground();
+        if (background != null) {
+            background.setBounds(0, 0, size, size);
+            background.draw(flatCanvas);
+        }
+        final Drawable foreground = icon.getForeground();
+        if (foreground != null) {
+            foreground.setBounds(0, 0, size, size);
+            foreground.draw(flatCanvas);
+        }
+
+        // Use the average of the RGB components as the alpha component
+        final ColorMatrix matrix = new ColorMatrix();
+        final float[] values = matrix.getArray();
+        values[15] = values[16] = values[17] = .3333f;
+        values[18] = values[19] = 0;
+        final Paint copyPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+        copyPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+        copyPaint.setColorFilter(new ColorMatrixColorFilter(values));
+        final Bitmap alphaBitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ALPHA_8);
+        new Canvas(alphaBitmap).drawBitmap(flatBitmap, 0, 0, copyPaint);
+        flatBitmap.recycle();
+
+        final byte[] pixels = new byte[size * size];
+        final ByteBuffer buffer = ByteBuffer.wrap(pixels);
+        alphaBitmap.copyPixelsToBuffer(buffer);
+        int min = 0xFF;
+        int max = 0;
+        for (byte b : pixels) {
+            min = Math.min(min, b & 0xFF);
+            max = Math.max(max, b & 0xFF);
+        }
+        if (min < max) {
+            final float range = max - min;
+            for (int i = 0; i < pixels.length; i++) {
+                // Rescale the pixels to the full range, then push them away from the middle
+                int p = Math.round(((pixels[i] & 0xFF) - min) * 0xFF / range);
+                if (p > 128) {
+                    p = 255 - (int) ((1 - (double) (p - 128) / 128) * (255 - p));
+                } else {
+                    p = (int) ((1 - (double) (128 - p) / 128) * p);
+                }
+                pixels[i] = (byte) Math.max(0, Math.min(255, p));
+            }
+            buffer.rewind();
+            alphaBitmap.copyPixelsFromBuffer(buffer);
+        }
+        alphaBitmap.setDensity(context.getResources().getDisplayMetrics().densityDpi);
+        return new BitmapDrawable(context.getResources(), alphaBitmap);
     }
 
     private static Drawable cropToShape(Context context, AdaptiveIconDrawable icon,
