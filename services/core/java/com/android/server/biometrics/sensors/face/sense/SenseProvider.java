@@ -40,7 +40,6 @@ import android.hardware.face.FaceAuthenticateOptions;
 import android.hardware.face.FaceEnrollOptions;
 import android.hardware.face.FaceSensorPropertiesInternal;
 import android.hardware.face.IFaceServiceReceiver;
-import android.net.Uri;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
@@ -124,6 +123,7 @@ public class SenseProvider implements ServiceProvider {
     @NonNull private final Context mContext;
     @NonNull private final BiometricScheduler mScheduler;
     @NonNull private final Handler mHandler;
+    @NonNull private final Supplier<ISenseService> mLazyDaemon;
     @NonNull private final LockoutHalImpl mLockoutTracker;
     @NonNull private final UsageStats mUsageStats;
     @NonNull private final Map<Integer, Long> mAuthenticatorIds;
@@ -362,6 +362,7 @@ public class SenseProvider implements ServiceProvider {
         mBiometricContext = BiometricContext.getInstance(context);
         mUsageStats = new UsageStats(context);
         mAuthenticatorIds = new HashMap<>();
+        mLazyDaemon = SenseProvider.this::getDaemon;
         mLockoutTracker = new LockoutHalImpl();
         mHalResultController = new HalResultController(sensorProps.sensorId, context, mHandler,
                 mScheduler, mLockoutTracker, lockoutResetDispatcher);
@@ -401,20 +402,6 @@ public class SenseProvider implements ServiceProvider {
         ISenseService service = getService(mCurrentUserId);
         if (service == null) {
             bindService(mCurrentUserId);
-        }
-        return service;
-    }
-
-    private synchronized ISenseService getDaemon(int userId) {
-        if (mTestHalEnabled) {
-            final TestHal testHal = new TestHal(mContext, mSensorId);
-            testHal.setCallback(mHalResultController);
-            return testHal;
-        }
-
-        ISenseService service = getService(userId);
-        if (service == null) {
-            bindService(userId);
         }
         return service;
     }
@@ -462,9 +449,7 @@ public class SenseProvider implements ServiceProvider {
 
     @Override
     public boolean isHardwareDetected(int sensorId) {
-        // The sense service is spawned on demand, so a missing service does not
-        // mean that the hardware is unavailable.
-        return mTestHalEnabled || isServiceEnabled();
+        return getDaemon() != null;
     }
 
     private boolean isGeneratedChallengeCacheValid() {
@@ -496,8 +481,8 @@ public class SenseProvider implements ServiceProvider {
     public void scheduleGenerateChallenge(int sensorId, int userId, @NonNull IBinder token,
             @NonNull IFaceServiceReceiver receiver, @NonNull String opPackageName) {
         mHandler.post(() -> {
-            if (getDaemon(userId) == null) {
-                bindService(userId);
+            if (getDaemon() == null) {
+                bindService(mCurrentUserId);
                 try {
                     receiver.onChallengeGenerated(sensorId, userId, 0L);
                     return;
@@ -517,7 +502,7 @@ public class SenseProvider implements ServiceProvider {
             scheduleUpdateActiveUserWithoutHandler(userId);
 
             final FaceGenerateChallengeClient client = new FaceGenerateChallengeClient(mContext,
-                    getLazyDaemonForUser(userId), token, new ClientMonitorCallbackConverter(receiver), userId,
+                    mLazyDaemon, token, new ClientMonitorCallbackConverter(receiver), userId,
                     opPackageName, mSensorId,
                     createLogger(BiometricsProtoEnums.ACTION_UNKNOWN,
                             BiometricsProtoEnums.CLIENT_UNKNOWN),
@@ -539,8 +524,8 @@ public class SenseProvider implements ServiceProvider {
     public void scheduleRevokeChallenge(int sensorId, int userId, @NonNull IBinder token,
             @NonNull String opPackageName, long challenge) {
         mHandler.post(() -> {
-            if (getDaemon(userId) == null) {
-                bindService(userId);
+            if (getDaemon() == null) {
+                bindService(mCurrentUserId);
                 return;
             }
             final boolean shouldRevoke = decrementChallengeCount() == 0;
@@ -554,7 +539,7 @@ public class SenseProvider implements ServiceProvider {
             mGeneratedChallengeCache = null;
 
             final FaceRevokeChallengeClient client = new FaceRevokeChallengeClient(mContext,
-                    getLazyDaemonForUser(userId), token, userId, opPackageName, mSensorId,
+                    mLazyDaemon, token, userId, opPackageName, mSensorId,
                     createLogger(BiometricsProtoEnums.ACTION_UNKNOWN,
                             BiometricsProtoEnums.CLIENT_UNKNOWN),
                     mBiometricContext);
@@ -579,8 +564,8 @@ public class SenseProvider implements ServiceProvider {
             @NonNull FaceEnrollOptions options) {
         final long id = mRequestCounter.incrementAndGet();
         mHandler.post(() -> {
-            if (getDaemon(userId) == null) {
-                bindService(userId);
+            if (getDaemon() == null) {
+                bindService(mCurrentUserId);
                 try {
                     receiver.onError(2, 0);
                     return;
@@ -593,20 +578,7 @@ public class SenseProvider implements ServiceProvider {
 
             BiometricNotificationUtils.cancelFaceReEnrollNotification(mContext);
 
-            // Settings may enter enrollment with a gatekeeper HAT obtained from the credential
-            // confirmation instead of a challenge from this HAL, e.g. when enrolling a private
-            // space profile. Generate one here so that enroll() does not bail out.
-            final ISenseService daemon = getLazyDaemonForUser(userId).get();
-            if (daemon != null && !(isGeneratedChallengeCacheValid()
-                    && mGeneratedChallengeCache.getTargetUserId() == userId)) {
-                try {
-                    daemon.generateChallenge(ENROLL_TIMEOUT_SEC);
-                } catch (RemoteException e) {
-                    Slog.e(TAG, "Failed to generate challenge for enroll", e);
-                }
-            }
-
-            final FaceEnrollClient client = new FaceEnrollClient(mContext, getLazyDaemonForUser(userId), token,
+            final FaceEnrollClient client = new FaceEnrollClient(mContext, mLazyDaemon, token,
                     new ClientMonitorCallbackConverter(receiver), userId, hardwareAuthToken,
                     opPackageName, id, FaceUtils.getLegacyInstance(mSensorId), disabledFeatures,
                     ENROLL_TIMEOUT_SEC, previewSurface, mSensorId,
@@ -667,14 +639,21 @@ public class SenseProvider implements ServiceProvider {
             int statsClient, boolean allowBackgroundAuthentication) {
         mHandler.post(() -> {
             final int userId = options.getUserId();
-            if (getDaemon(userId) == null) {
-                bindService(userId);
+            if (getDaemon() == null) {
+                bindService(mCurrentUserId);
+                try {
+                    receiver.onError(1008, 0, 1, 0);
+                    return;
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                    return;
+                }
             }
             scheduleUpdateActiveUserWithoutHandler(userId);
 
             final boolean isStrongBiometric = Utils.isStrongBiometric(mSensorId);
             final FaceAuthenticationClient client = new FaceAuthenticationClient(mContext,
-                    getLazyDaemonForUser(userId), token, requestId, receiver, operationId, restricted,
+                    mLazyDaemon, token, requestId, receiver, operationId, restricted,
                     options, cookie, false /* requireConfirmation */,
                     createLogger(BiometricsProtoEnums.ACTION_AUTHENTICATE, statsClient),
                     mBiometricContext, isStrongBiometric, mLockoutTracker,
@@ -706,8 +685,8 @@ public class SenseProvider implements ServiceProvider {
     public void scheduleRemove(int sensorId, @NonNull IBinder token, int faceId, int userId,
             @NonNull IFaceServiceReceiver receiver, @NonNull String opPackageName) {
         mHandler.post(() -> {
-            if (getDaemon(userId) == null) {
-                bindService(userId);
+            if (getDaemon() == null) {
+                bindService(mCurrentUserId);
                 try {
                     receiver.onError(1, 0);
                     return;
@@ -718,8 +697,7 @@ public class SenseProvider implements ServiceProvider {
             }
             scheduleUpdateActiveUserWithoutHandler(userId);
 
-            final FaceRemovalClient client = new FaceRemovalClient(mContext,
-                    getLazyDaemonForUser(userId), token,
+            final FaceRemovalClient client = new FaceRemovalClient(mContext, mLazyDaemon, token,
                     new ClientMonitorCallbackConverter(receiver), faceId, userId, opPackageName,
                     FaceUtils.getLegacyInstance(mSensorId), mSensorId,
                     createLogger(BiometricsProtoEnums.ACTION_REMOVE,
@@ -734,8 +712,8 @@ public class SenseProvider implements ServiceProvider {
     public void scheduleRemoveAll(int sensorId, @NonNull IBinder token, int userId,
             @NonNull IFaceServiceReceiver receiver, @NonNull String opPackageName) {
         mHandler.post(() -> {
-            if (getDaemon(userId) == null) {
-                bindService(userId);
+            if (getDaemon() == null) {
+                bindService(mCurrentUserId);
                 try {
                     receiver.onError(1, 0);
                     return;
@@ -747,8 +725,7 @@ public class SenseProvider implements ServiceProvider {
             scheduleUpdateActiveUserWithoutHandler(userId);
 
             // For IBiometricsFace@1.0, remove(0) means remove all enrollments
-            final FaceRemovalClient client = new FaceRemovalClient(mContext,
-                    getLazyDaemonForUser(userId), token,
+            final FaceRemovalClient client = new FaceRemovalClient(mContext, mLazyDaemon, token,
                     new ClientMonitorCallbackConverter(receiver), 0 /* faceId */, userId,
                     opPackageName,
                     FaceUtils.getLegacyInstance(mSensorId), mSensorId,
@@ -763,8 +740,8 @@ public class SenseProvider implements ServiceProvider {
     @Override
     public void scheduleResetLockout(int sensorId, int userId, @NonNull byte[] hardwareAuthToken) {
         mHandler.post(() -> {
-            if (getDaemon(userId) == null) {
-                bindService(userId);
+            if (getDaemon() == null) {
+                bindService(mCurrentUserId);
             }
             if (getEnrolledFaces(sensorId, userId).isEmpty()) {
                 Slog.w(TAG, "Ignoring lockout reset, no templates enrolled for user: " + userId);
@@ -774,7 +751,7 @@ public class SenseProvider implements ServiceProvider {
             scheduleUpdateActiveUserWithoutHandler(userId);
 
             final FaceResetLockoutClient client = new FaceResetLockoutClient(mContext,
-                    getLazyDaemonForUser(userId), userId, mContext.getOpPackageName(), mSensorId,
+                    mLazyDaemon, userId, mContext.getOpPackageName(), mSensorId,
                     createLogger(BiometricsProtoEnums.ACTION_UNKNOWN,
                             BiometricsProtoEnums.CLIENT_UNKNOWN),
                     mBiometricContext, hardwareAuthToken);
@@ -787,8 +764,8 @@ public class SenseProvider implements ServiceProvider {
             boolean enabled, @NonNull byte[] hardwareAuthToken,
             @NonNull IFaceServiceReceiver receiver, @NonNull String opPackageName) {
         mHandler.post(() -> {
-            if (getDaemon(userId) == null) {
-                bindService(userId);
+            if (getDaemon() == null) {
+                bindService(mCurrentUserId);
                 return;
             }
             final List<Face> faces = getEnrolledFaces(sensorId, userId);
@@ -801,8 +778,8 @@ public class SenseProvider implements ServiceProvider {
 
             final int faceId = faces.get(0).getBiometricId();
             final FaceSetFeatureClient client = new FaceSetFeatureClient(mContext,
-                    getLazyDaemonForUser(userId), token, new ClientMonitorCallbackConverter(receiver), userId,
-                    opPackageName, mSensorId, BiometricLogger.ofUnknown(mContext, mHandler),
+                    mLazyDaemon, token, new ClientMonitorCallbackConverter(receiver), userId,
+                    opPackageName, mSensorId, BiometricLogger.ofUnknown(mContext),
                     mBiometricContext,
                     feature, enabled, hardwareAuthToken, faceId);
             mScheduler.scheduleClientMonitor(client, mBiometricStateCallback);
@@ -813,8 +790,8 @@ public class SenseProvider implements ServiceProvider {
     public void scheduleGetFeature(int sensorId, @NonNull IBinder token, int userId, int feature,
             @Nullable ClientMonitorCallbackConverter listener, @NonNull String opPackageName) {
         mHandler.post(() -> {
-            if (getDaemon(userId) == null) {
-                bindService(userId);
+            if (getDaemon() == null) {
+                bindService(mCurrentUserId);
                 if (listener != null) {
                     try {
                         listener.onError(1008, 0, 1, 0);
@@ -835,10 +812,9 @@ public class SenseProvider implements ServiceProvider {
             scheduleUpdateActiveUserWithoutHandler(userId);
 
             final int faceId = faces.get(0).getBiometricId();
-            final FaceGetFeatureClient client = new FaceGetFeatureClient(mContext,
-                    getLazyDaemonForUser(userId),
+            final FaceGetFeatureClient client = new FaceGetFeatureClient(mContext, mLazyDaemon,
                     token, listener, userId, opPackageName, mSensorId,
-                    BiometricLogger.ofUnknown(mContext, mHandler), mBiometricContext,
+                    BiometricLogger.ofUnknown(mContext), mBiometricContext,
                     feature, faceId);
             mScheduler.scheduleClientMonitor(client, new ClientMonitorCallback() {
                 @Override
@@ -863,7 +839,7 @@ public class SenseProvider implements ServiceProvider {
             scheduleUpdateActiveUserWithoutHandler(userId);
 
             final FaceInternalCleanupClient client = new FaceInternalCleanupClient(mContext,
-                    getLazyDaemonForUser(userId), userId, mContext.getOpPackageName(), mSensorId,
+                    mLazyDaemon, userId, mContext.getOpPackageName(), mSensorId,
                     createLogger(BiometricsProtoEnums.ACTION_ENUMERATE,
                             BiometricsProtoEnums.CLIENT_UNKNOWN),
                     mBiometricContext,
@@ -995,7 +971,7 @@ public class SenseProvider implements ServiceProvider {
     private void scheduleUpdateActiveUserWithoutHandler(int targetUserId) {
         final boolean hasEnrolled = !getEnrolledFaces(mSensorId, targetUserId).isEmpty();
         final FaceUpdateActiveUserClient client = new FaceUpdateActiveUserClient(mContext,
-                getLazyDaemonForUser(targetUserId), targetUserId, mContext.getOpPackageName(), mSensorId,
+                mLazyDaemon, targetUserId, mContext.getOpPackageName(), mSensorId,
                 createLogger(BiometricsProtoEnums.ACTION_UNKNOWN,
                         BiometricsProtoEnums.CLIENT_UNKNOWN),
                 mBiometricContext, hasEnrolled, mAuthenticatorIds);
@@ -1081,22 +1057,10 @@ public class SenseProvider implements ServiceProvider {
     }
 
     private ISenseService getService(int userId) {
-        return mServices.get(userId);
-    }
-
-    /**
-     * Returns a daemon supplier that resolves against the service bound for the given user,
-     * instead of the current foreground user, so that operations scheduled for a profile
-     * (e.g. private space) reach the right service instance.
-     */
-    private Supplier<ISenseService> getLazyDaemonForUser(int userId) {
-        return () -> {
-            final ISenseService service = getService(userId);
-            if (service == null) {
-                bindService(userId);
-            }
-            return service;
-        };
+        if (userId == -10000) {
+            scheduleUpdateActiveUserWithoutHandler(ActivityManager.getCurrentUser());
+        }
+        return mServices.get(mCurrentUserId);
     }
 
     public boolean bindService(int userId) {
@@ -1112,10 +1076,7 @@ public class SenseProvider implements ServiceProvider {
                 try {
                     Intent intent = new Intent(BIND_SENSE_ACTION);
                     intent.setClassName(PACKAGE_NAME, SERVICE_NAME);
-                    intent.setData(Uri.parse("sense://user/" + userId));
-                    intent.putExtra(Intent.EXTRA_USER_ID, userId);
-                    boolean result = mContext.bindServiceAsUser(intent,
-                            new SenseServiceConnection(userId), 1, UserHandle.SYSTEM);
+                    boolean result = mContext.bindServiceAsUser(intent, new SenseServiceConnection(userId), 1, UserHandle.of(userId));
                     if (result) {
                         mIsBinding = true;
                     }
