@@ -22,6 +22,7 @@ import android.graphics.drawable.Drawable
 import android.hardware.biometrics.BiometricFingerprintConstants
 import android.hardware.biometrics.BiometricPrompt
 import android.hardware.biometrics.PromptContentView
+import android.os.SystemProperties
 import android.text.TextPaint
 import android.util.Log
 import android.view.HapticFeedbackConstants
@@ -296,7 +297,14 @@ constructor(
      * If the API caller or the user's personal preferences require explicit confirmation after
      * successful authentication. Confirmation always required when in explicit flow.
      */
-    val isConfirmationRequired: Flow<Boolean> = promptSelectorInteractor.isConfirmationRequired
+    val isConfirmationRequired: Flow<Boolean> =
+        if (SystemProperties.getBoolean("ro.face.sense_service", false)) {
+            promptSelectorInteractor.isConfirmationRequired
+        } else {
+            combine(_isOverlayTouched, size) { isOverlayTouched, size ->
+                !isOverlayTouched && size.isNotSmall
+            }
+        }
 
     /**
      * When fingerprint and face modalities are enrolled, indicates whether only face auth has

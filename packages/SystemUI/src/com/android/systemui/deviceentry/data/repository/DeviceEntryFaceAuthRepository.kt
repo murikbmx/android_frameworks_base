@@ -19,6 +19,7 @@ package com.android.systemui.deviceentry.data.repository
 import android.app.StatusBarManager
 import android.hardware.face.FaceManager
 import android.os.CancellationSignal
+import android.os.SystemProperties
 import com.android.app.tracing.coroutines.launchTraced as launch
 import com.android.internal.logging.InstanceId
 import com.android.internal.logging.UiEventLogger
@@ -234,7 +235,7 @@ constructor(
             )
 
     override fun setLockedOut(isLockedOut: Boolean) {
-        _isLockedOut.value = false
+        _isLockedOut.value = isLockedOut && !isFaceSenseEnabled
     }
 
     private val faceLockoutResetCallback =
@@ -508,7 +509,7 @@ constructor(
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
                 val errorStatus = ErrorFaceAuthenticationStatus(errorCode, errString.toString())
                 if (errorStatus.isLockoutError()) {
-                    _isLockedOut.value = false
+                    _isLockedOut.value = !isFaceSenseEnabled
                 }
                 _isCurrentUserAuthenticated.value = false
                 _authenticationStatus.value = errorStatus
@@ -772,6 +773,9 @@ constructor(
         pw.println("  lockscreenBypassEnabled: ${keyguardBypassController?.bypassEnabled ?: false}")
     }
 }
+
+/** Face unlock is provided by FaceSense, which doesn't enforce lockouts the way a HAL does. */
+private val isFaceSenseEnabled = SystemProperties.getBoolean("ro.face.sense_service", false)
 
 /** "Not" the given flow. The return [Flow] will be true when [this] flow is false. */
 private fun Flow<Boolean>.isFalse(): Flow<Boolean> {

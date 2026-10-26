@@ -20,6 +20,7 @@ import android.annotation.IntDef
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.hardware.biometrics.BiometricSourceType
+import android.os.SystemProperties
 import android.provider.Settings
 import android.util.Log
 import com.android.app.tracing.ListenersTracing.forEachTraced
@@ -119,7 +120,12 @@ constructor(
             notifyListeners()
         }
 
-    var bypassEnabledBiometric: Boolean = false
+    /** FaceSense dismisses the lock screen for any biometric, following the face setting. */
+    private val isFaceSenseEnabled = SystemProperties.getBoolean("ro.face.sense_service", false)
+    private var faceSenseBypassEnabled = false
+
+    val bypassEnabledBiometric: Boolean
+        get() = if (isFaceSenseEnabled) faceSenseBypassEnabled else bypassEnabled
 
     var bouncerShowing: Boolean = false
     var launchingAffordance: Boolean = false
@@ -158,7 +164,14 @@ constructor(
                     1
                 else 0
             tunerService.addTunable(
-                { key, _ -> bypassEnabledBiometric = tunerService.getValue(key, dismissByDefault) != 0 },
+                { key, _ ->
+                    val enabled = tunerService.getValue(key, dismissByDefault) != 0
+                    if (isFaceSenseEnabled) {
+                        faceSenseBypassEnabled = enabled
+                    } else {
+                        bypassEnabled = enabled
+                    }
+                },
                 Settings.Secure.FACE_UNLOCK_DISMISSES_KEYGUARD,
             )
             lockscreenUserManager.addUserChangedListener(
@@ -201,7 +214,10 @@ constructor(
         biometricSourceType: BiometricSourceType,
         isStrongBiometric: Boolean,
     ): Boolean {
-        if (bypassEnabledBiometric) {
+        if (
+            bypassEnabledBiometric &&
+                (isFaceSenseEnabled || biometricSourceType == BiometricSourceType.FACE)
+        ) {
             val can = biometricSourceType != BiometricSourceType.FACE || canBypass()
             if (!can) {
                 Log.d(

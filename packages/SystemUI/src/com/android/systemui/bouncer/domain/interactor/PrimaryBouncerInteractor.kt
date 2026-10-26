@@ -19,6 +19,7 @@ package com.android.systemui.bouncer.domain.interactor
 import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Handler
+import android.os.SystemProperties
 import android.os.Trace
 import android.util.Log
 import android.view.View
@@ -79,6 +80,9 @@ constructor(
     private val selectedUserInteractor: SelectedUserInteractor,
     private val deviceEntryFaceAuthInteractor: DeviceEntryFaceAuthInteractor,
 ) {
+    private val passiveAuthBouncerDelay =
+        context.resources.getInteger(R.integer.primary_bouncer_passive_auth_delay).toLong()
+
     /** Runnable to show the primary bouncer. */
     val showRunnable = Runnable {
         repository.setPrimaryShow(true)
@@ -176,7 +180,13 @@ constructor(
 
             Log.i(TAG, "Show primary bouncer requested, reason: $reason")
             repository.setPrimaryShowingSoon(true)
-            DejankUtils.postAfterTraversal(showRunnable)
+            if (usePrimaryBouncerPassiveAuthDelay() &&
+                    !SystemProperties.getBoolean("ro.face.sense_service", false)) {
+                Log.d(TAG, "delay bouncer, passive auth may succeed")
+                mainHandler.postDelayed(showRunnable, passiveAuthBouncerDelay)
+            } else {
+                DejankUtils.postAfterTraversal(showRunnable)
+            }
             keyguardStateController.notifyPrimaryBouncerShowing(true)
             primaryBouncerCallbackInteractor.dispatchStartingToShow()
             return true

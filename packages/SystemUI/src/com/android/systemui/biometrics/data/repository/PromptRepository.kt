@@ -17,6 +17,7 @@
 package com.android.systemui.biometrics.data.repository
 
 import android.hardware.biometrics.PromptInfo
+import android.os.SystemProperties
 import android.util.Log
 import com.android.systemui.biometrics.AuthController
 import com.android.systemui.biometrics.shared.model.BiometricModalities
@@ -150,8 +151,22 @@ constructor(
     private val _faceSettings =
         _userId.map { id -> faceSettings.forUser(id) }.distinctUntilChanged()
 
-    override val isConfirmationRequired =
+    private val _faceSettingAlwaysRequireConfirmation =
         _faceSettings.flatMapLatest { it.alwaysRequireConfirmationInApps }.distinctUntilChanged()
+
+    private val _isConfirmationRequired = _promptInfo.map { it?.isConfirmationRequested ?: false }
+    override val isConfirmationRequired =
+        if (SystemProperties.getBoolean("ro.face.sense_service", false)) {
+            // FaceSense: follow only the user setting
+            _faceSettingAlwaysRequireConfirmation
+        } else {
+            combine(_isConfirmationRequired, _faceSettingAlwaysRequireConfirmation) {
+                    appRequiresConfirmation,
+                    forceRequireConfirmation ->
+                    forceRequireConfirmation || appRequiresConfirmation
+                }
+                .distinctUntilChanged()
+        }
 
     override fun setPrompt(
         promptInfo: PromptInfo,
