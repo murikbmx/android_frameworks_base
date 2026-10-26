@@ -664,17 +664,19 @@ public class FaceService extends SystemService {
 
         private List<ServiceProvider> getSenseProviders() {
             final List<ServiceProvider> providers = new ArrayList<>();
-            FaceSensorPropertiesInternal props = new FaceSensorPropertiesInternal(
-                    SenseProvider.DEVICE_ID,
-                    SensorProperties.STRENGTH_WEAK,
-                    1, /** maxEnrollmentsPerUser **/
-                    new ArrayList(),
-                    FaceSensorProperties.TYPE_RGB,
-                    false, /** supportsFaceDetection **/
-                    false, /** supportsSelfIllumination **/
-                    false); /** resetLockoutRequiresChallenge **/
-            SenseProvider provider = new SenseProvider(getContext(), mBiometricStateCallback, props, mLockoutResetDispatcher);
-            providers.add(provider);
+            if (SenseUtils.canUseProvider()) {
+                FaceSensorPropertiesInternal props = new FaceSensorPropertiesInternal(
+                        SenseProvider.DEVICE_ID,
+                        SensorProperties.STRENGTH_WEAK,
+                        1, /** maxEnrollmentsPerUser **/
+                        new ArrayList(),
+                        FaceSensorProperties.TYPE_RGB,
+                        false, /** supportsFaceDetection **/
+                        false, /** supportsSelfIllumination **/
+                        false); /** resetLockoutRequiresChallenge **/
+                SenseProvider provider = new SenseProvider(getContext(), mBiometricStateCallback, props, mLockoutResetDispatcher);
+                providers.add(provider);
+            }
             return providers;
         }
 
@@ -693,14 +695,13 @@ public class FaceService extends SystemService {
         private List<ServiceProvider> getProviders(
                 FaceSensorConfigurations faceSensorConfigurations) {
             final List<ServiceProvider> providers = new ArrayList<>();
-            if (SenseUtils.canUseProvider()) {
-                providers.addAll(getSenseProviders());
-                return providers;
-            }
+            /*
             final Pair<String, SensorProps[]> filteredSensorProps = filterAvailableHalInstances(
                             faceSensorConfigurations);
             providers.add(mFaceProviderFunction.getFaceProvider(filteredSensorProps,
                     faceSensorConfigurations.getResetLockoutRequiresChallenge()));
+            */
+            providers.addAll(getSenseProviders());
             return providers;
         }
 
