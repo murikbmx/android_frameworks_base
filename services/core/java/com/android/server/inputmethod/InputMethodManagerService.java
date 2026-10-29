@@ -881,11 +881,20 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                 updateInputMethodsFromSettingsLocked(enabledChanged, userId);
                 break;
             }
-            case Settings.Secure.IME_SWITCHER_BUTTON_IN_NAVBAR_ENABLED:
-            case Settings.Secure.IME_NAV_BAR_SPACE_HIDDEN: {
+            case Settings.Secure.IME_SWITCHER_BUTTON_IN_NAVBAR_ENABLED: {
                 final var userData = getUserData(userId);
                 updateSystemUiLocked(userId);
                 sendOnNavButtonFlagsChangedLocked(userData);
+                break;
+            }
+            case Settings.Secure.IME_NAV_BAR_SPACE_HIDDEN: {
+                // The setting is read from the profile parent, so also notify its profiles
+                // (e.g. private space).
+                for (final int profileId : getProfileIds(userId)) {
+                    final var userData = getUserData(profileId);
+                    updateSystemUiLocked(profileId);
+                    sendOnNavButtonFlagsChangedLocked(userData);
+                }
                 break;
             }
         }
@@ -2955,8 +2964,9 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
         final boolean hasNavigationBar = mWindowManagerInternal
                 .hasNavigationBar(curDisplayId != INVALID_DISPLAY ? curDisplayId : DEFAULT_DISPLAY);
         // Without the IME navigation bar the IME does not reserve any space under the keyboard.
-        final boolean imeNavBarSpaceHidden =
-                InputMethodSettingsRepository.get(userId).isImeNavBarSpaceHidden();
+        // Profiles (e.g. private space) follow the setting of their parent user.
+        final boolean imeNavBarSpaceHidden = InputMethodSettingsRepository.get(
+                mUserManagerInternal.getProfileParentId(userId)).isImeNavBarSpaceHidden();
         final boolean imeDrawsImeNavBar = userData.mImeDrawsNavBar.get() && hasNavigationBar
                 && !imeNavBarSpaceHidden;
         final boolean showImeSwitcherButton = shouldShowImeSwitcherButtonLocked(userId);
