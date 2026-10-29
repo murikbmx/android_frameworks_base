@@ -55,10 +55,12 @@ import java.util.concurrent.TimeoutException;
  * Styles an app icon like the launcher does: monochrome when themed icons are enabled (generated
  * from the colored icon if the app doesn't provide one), and cropped to the selected icon shape.
  * The settings are read from the launcher's customization provider, the same one the wallpaper &
- * style picker uses.
+ * style picker uses. Used for the app icons shown by App Lock and the biometric prompt.
+ *
+ * @hide
  */
-final class LockedAppIconStyler {
-    private static final String TAG = "LockedAppIconStyler";
+public final class LauncherIconStyler {
+    private static final String TAG = "LauncherIconStyler";
 
     private static final String GRID_CONTROL_AUTHORITY_SUFFIX = ".grid_control";
     private static final String PATH_ICON_THEMED = "icon_themed";
@@ -72,14 +74,14 @@ final class LockedAppIconStyler {
     private static final int FALLBACK_ICON_SIZE_PX = 192;
     private static final long QUERY_TIMEOUT_MS = 500;
 
-    private LockedAppIconStyler() {}
+    private LauncherIconStyler() {}
 
     /**
      * Returns the icon styled like the launcher, or the original icon if the launcher doesn't
      * provide its settings or the icon can't be styled.
      */
     @Nullable
-    static Drawable apply(@NonNull Context context, @Nullable Drawable icon) {
+    public static Drawable apply(@NonNull Context context, @Nullable Drawable icon) {
         if (!(icon instanceof AdaptiveIconDrawable)) {
             return icon;
         }
@@ -127,7 +129,7 @@ final class LockedAppIconStyler {
 
     /**
      * Reads the icon settings on a background thread. The caller may run on the system server's
-     * main thread, so it must never block on the launcher for long.
+     * or SystemUI's main thread, so it must never block on the launcher for long.
      */
     @Nullable
     private static LauncherIconSettings queryLauncherWithTimeout(Context context,

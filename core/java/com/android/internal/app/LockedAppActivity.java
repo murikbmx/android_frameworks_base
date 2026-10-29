@@ -762,7 +762,7 @@ public final class LockedAppActivity extends Activity {
          */
         @Nullable
         public Drawable styleLauncherIcon(Activity activity, @Nullable Drawable icon) {
-            return LockedAppIconStyler.apply(activity, icon);
+            return LauncherIconStyler.apply(activity, icon);
         }
 
         /**
