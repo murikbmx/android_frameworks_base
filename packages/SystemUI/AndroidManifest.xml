@@ -163,6 +163,8 @@
 
     <!-- Needed for WallpaperManager.clear in ImageWallpaper.updateWallpaperLocked -->
     <uses-permission android:name="android.permission.SET_WALLPAPER"/>
+    <!-- Read the launcher icon settings to style the biometric prompt logo -->
+    <uses-permission android:name="android.permission.BIND_WALLPAPER"/>
 
     <!-- Needed for WallpaperManager.getWallpaperDimAmount in CentralSurfaces.updateTheme -->
     <uses-permission android:name="android.permission.SET_WALLPAPER_DIM_AMOUNT"/>

@@ -26,6 +26,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import android.util.Log
+import com.android.internal.app.LauncherIconStyler
 import com.android.launcher3.icons.IconProvider
 import com.android.systemui.biometrics.Utils
 import com.android.systemui.biometrics.Utils.isSystem
@@ -98,10 +99,11 @@ constructor(
             }
         }
 
-        // Add user badge for non-customized logo icon
+        // Style non-customized logo icon like the launcher shows it, then add user badge
         val userHandle = UserHandle.of(request.userInfo.userId)
         if (icon != null && icon != customizedIcon) {
-            icon = packageManager.getUserBadgedIcon(icon, userHandle)
+            val styledIcon = LauncherIconStyler.apply(context, icon) ?: icon
+            icon = packageManager.getUserBadgedIcon(styledIcon, userHandle)
         }
 
         return Pair(icon, label)
