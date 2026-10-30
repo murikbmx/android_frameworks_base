@@ -508,7 +508,10 @@ public final class LockedAppActivity extends Activity {
                 Slog.d(TAG, "Package is unlocked, finishing");
             }
             mIsPackageUnlocked = true;
-            finish();
+            // In intercept mode, the launch may have been intercepted again right after the
+            // authentication, before the window manager learnt that the package is unlocked.
+            // Send the original launch instead of dropping it.
+            completeUnlockAndFinish();
             return true;
         }
 
