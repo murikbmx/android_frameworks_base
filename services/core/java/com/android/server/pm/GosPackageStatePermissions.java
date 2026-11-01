@@ -16,7 +16,6 @@ import android.util.EmptyArray;
 import android.util.Slog;
 import android.util.SparseArray;
 
-import com.android.internal.gmscompat.GmsCompatApp;
 import com.android.server.LocalServices;
 
 import java.util.Objects;
@@ -119,7 +118,7 @@ class GosPackageStatePermissions {
         builder()
                 .readFlags(playIntegrityFlags)
                 .readWriteFlag(SUPPRESS_PLAY_INTEGRITY_API_NOTIF)
-                .apply(GmsCompatApp.PKG_NAME, computer);
+                .apply("app.grapheneos.gmscompat", computer); // GmsCompatApp.PKG_NAME
 
         @GosPackageStateFlag.Enum int[] settingsReadWriteFlags = {
                 ALLOW_ACCESS_TO_OBB_DIRECTORY,
