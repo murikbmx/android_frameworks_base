@@ -2099,6 +2099,38 @@ UnflaggedApi: android.app.AppOpsManager#OPSTR_RECEIVE_SANDBOX_TRIGGER_AUDIO:
     New API must be flagged with @FlaggedApi: field android.app.AppOpsManager.OPSTR_RECEIVE_SANDBOX_TRIGGER_AUDIO
 UnflaggedApi: android.app.Notification#EXTRA_PREFER_SMALL_ICON:
     New API must be flagged with @FlaggedApi: field android.app.Notification.EXTRA_PREFER_SMALL_ICON
+UnflaggedApi: android.app.StorageScope:
+    New API must be flagged with @FlaggedApi: class android.app.StorageScope
+UnflaggedApi: android.app.StorageScope#EXTERNAL_STORAGE_PROVIDER_METHOD_CONVERT_DOC_ID_TO_PATH:
+    New API must be flagged with @FlaggedApi: field android.app.StorageScope.EXTERNAL_STORAGE_PROVIDER_METHOD_CONVERT_DOC_ID_TO_PATH
+UnflaggedApi: android.app.StorageScope#FLAG_ALLOW_WRITES:
+    New API must be flagged with @FlaggedApi: field android.app.StorageScope.FLAG_ALLOW_WRITES
+UnflaggedApi: android.app.StorageScope#FLAG_IS_DIR:
+    New API must be flagged with @FlaggedApi: field android.app.StorageScope.FLAG_IS_DIR
+UnflaggedApi: android.app.StorageScope#MEDIA_PROVIDER_METHOD_INVALIDATE_MEDIA_PROVIDER_CACHE:
+    New API must be flagged with @FlaggedApi: field android.app.StorageScope.MEDIA_PROVIDER_METHOD_INVALIDATE_MEDIA_PROVIDER_CACHE
+UnflaggedApi: android.app.StorageScope#MEDIA_PROVIDER_METHOD_MEDIA_ID_TO_FILE_PATH:
+    New API must be flagged with @FlaggedApi: field android.app.StorageScope.MEDIA_PROVIDER_METHOD_MEDIA_ID_TO_FILE_PATH
+UnflaggedApi: android.app.StorageScope#StorageScope(String, int):
+    New API must be flagged with @FlaggedApi: constructor android.app.StorageScope(String,int)
+UnflaggedApi: android.app.StorageScope#createConfigActivityIntent(String):
+    New API must be flagged with @FlaggedApi: method android.app.StorageScope.createConfigActivityIntent(String)
+UnflaggedApi: android.app.StorageScope#deserializeArray(android.content.pm.GosPackageState):
+    New API must be flagged with @FlaggedApi: method android.app.StorageScope.deserializeArray(android.content.pm.GosPackageState)
+UnflaggedApi: android.app.StorageScope#flags:
+    New API must be flagged with @FlaggedApi: field android.app.StorageScope.flags
+UnflaggedApi: android.app.StorageScope#isDirectory():
+    New API must be flagged with @FlaggedApi: method android.app.StorageScope.isDirectory()
+UnflaggedApi: android.app.StorageScope#isFile():
+    New API must be flagged with @FlaggedApi: method android.app.StorageScope.isFile()
+UnflaggedApi: android.app.StorageScope#isWritable():
+    New API must be flagged with @FlaggedApi: method android.app.StorageScope.isWritable()
+UnflaggedApi: android.app.StorageScope#maxArrayLength():
+    New API must be flagged with @FlaggedApi: method android.app.StorageScope.maxArrayLength()
+UnflaggedApi: android.app.StorageScope#path:
+    New API must be flagged with @FlaggedApi: field android.app.StorageScope.path
+UnflaggedApi: android.app.StorageScope#serializeArray(android.app.StorageScope[]):
+    New API must be flagged with @FlaggedApi: method android.app.StorageScope.serializeArray(android.app.StorageScope[])
 UnflaggedApi: android.companion.virtual.VirtualDeviceManager.VirtualDevice#getPersistentDeviceId():
     New API must be flagged with @FlaggedApi: method android.companion.virtual.VirtualDeviceManager.VirtualDevice.getPersistentDeviceId()
 UnflaggedApi: android.content.Context#THREAD_NETWORK_SERVICE:
@@ -2337,6 +2369,90 @@ UnflaggedApi: android.ext.PackageId#TYCHO_NAME:
     New API must be flagged with @FlaggedApi: field android.ext.PackageId.TYCHO_NAME
 UnflaggedApi: android.ext.PackageId#UNKNOWN:
     New API must be flagged with @FlaggedApi: field android.ext.PackageId.UNKNOWN
+UnflaggedApi: android.ext.cscopes.ContactScope:
+    New API must be flagged with @FlaggedApi: class android.ext.cscopes.ContactScope
+UnflaggedApi: android.ext.cscopes.ContactScope#CREATOR:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.CREATOR
+UnflaggedApi: android.ext.cscopes.ContactScope#ContactScope(int, long, String, String, android.net.Uri):
+    New API must be flagged with @FlaggedApi: constructor android.ext.cscopes.ContactScope(int,long,String,String,android.net.Uri)
+UnflaggedApi: android.ext.cscopes.ContactScope#TYPE_CONTACT:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.TYPE_CONTACT
+UnflaggedApi: android.ext.cscopes.ContactScope#TYPE_COUNT:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.TYPE_COUNT
+UnflaggedApi: android.ext.cscopes.ContactScope#TYPE_EMAIL:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.TYPE_EMAIL
+UnflaggedApi: android.ext.cscopes.ContactScope#TYPE_GROUP:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.TYPE_GROUP
+UnflaggedApi: android.ext.cscopes.ContactScope#TYPE_NUMBER:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.TYPE_NUMBER
+UnflaggedApi: android.ext.cscopes.ContactScope#describeContents():
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScope.describeContents()
+UnflaggedApi: android.ext.cscopes.ContactScope#detailsUri:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.detailsUri
+UnflaggedApi: android.ext.cscopes.ContactScope#id:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.id
+UnflaggedApi: android.ext.cscopes.ContactScope#summary:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.summary
+UnflaggedApi: android.ext.cscopes.ContactScope#title:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.title
+UnflaggedApi: android.ext.cscopes.ContactScope#type:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScope.type
+UnflaggedApi: android.ext.cscopes.ContactScope#writeToParcel(android.os.Parcel, int):
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScope.writeToParcel(android.os.Parcel,int)
+UnflaggedApi: android.ext.cscopes.ContactScopesApi:
+    New API must be flagged with @FlaggedApi: class android.ext.cscopes.ContactScopesApi
+UnflaggedApi: android.ext.cscopes.ContactScopesApi#ACTION_NOTIFY_CONTENT_OBSERVERS:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScopesApi.ACTION_NOTIFY_CONTENT_OBSERVERS
+UnflaggedApi: android.ext.cscopes.ContactScopesApi#KEY_IDS:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScopesApi.KEY_IDS
+UnflaggedApi: android.ext.cscopes.ContactScopesApi#KEY_RESULT:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScopesApi.KEY_RESULT
+UnflaggedApi: android.ext.cscopes.ContactScopesApi#KEY_URIS:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScopesApi.KEY_URIS
+UnflaggedApi: android.ext.cscopes.ContactScopesApi#METHOD_GET_GROUPS:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScopesApi.METHOD_GET_GROUPS
+UnflaggedApi: android.ext.cscopes.ContactScopesApi#METHOD_GET_IDS_FROM_URIS:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScopesApi.METHOD_GET_IDS_FROM_URIS
+UnflaggedApi: android.ext.cscopes.ContactScopesApi#METHOD_GET_VIEW_MODEL:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScopesApi.METHOD_GET_VIEW_MODEL
+UnflaggedApi: android.ext.cscopes.ContactScopesApi#SCOPED_CONTACTS_PROVIDER_AUTHORITY:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScopesApi.SCOPED_CONTACTS_PROVIDER_AUTHORITY
+UnflaggedApi: android.ext.cscopes.ContactScopesApi#createConfigActivityIntent(String):
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScopesApi.createConfigActivityIntent(String)
+UnflaggedApi: android.ext.cscopes.ContactScopesStorage:
+    New API must be flagged with @FlaggedApi: class android.ext.cscopes.ContactScopesStorage
+UnflaggedApi: android.ext.cscopes.ContactScopesStorage#MAX_COUNT_PER_PACKAGE:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactScopesStorage.MAX_COUNT_PER_PACKAGE
+UnflaggedApi: android.ext.cscopes.ContactScopesStorage#add(int, long):
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScopesStorage.add(int,long)
+UnflaggedApi: android.ext.cscopes.ContactScopesStorage#deserialize(android.content.pm.GosPackageState):
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScopesStorage.deserialize(android.content.pm.GosPackageState)
+UnflaggedApi: android.ext.cscopes.ContactScopesStorage#getCount():
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScopesStorage.getCount()
+UnflaggedApi: android.ext.cscopes.ContactScopesStorage#getIds(int):
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScopesStorage.getIds(int)
+UnflaggedApi: android.ext.cscopes.ContactScopesStorage#isEmpty(android.content.pm.GosPackageState):
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScopesStorage.isEmpty(android.content.pm.GosPackageState)
+UnflaggedApi: android.ext.cscopes.ContactScopesStorage#remove(int, long):
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScopesStorage.remove(int,long)
+UnflaggedApi: android.ext.cscopes.ContactScopesStorage#serialize():
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactScopesStorage.serialize()
+UnflaggedApi: android.ext.cscopes.ContactsGroup:
+    New API must be flagged with @FlaggedApi: class android.ext.cscopes.ContactsGroup
+UnflaggedApi: android.ext.cscopes.ContactsGroup#CREATOR:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactsGroup.CREATOR
+UnflaggedApi: android.ext.cscopes.ContactsGroup#ContactsGroup(long, String, String):
+    New API must be flagged with @FlaggedApi: constructor android.ext.cscopes.ContactsGroup(long,String,String)
+UnflaggedApi: android.ext.cscopes.ContactsGroup#describeContents():
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactsGroup.describeContents()
+UnflaggedApi: android.ext.cscopes.ContactsGroup#id:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactsGroup.id
+UnflaggedApi: android.ext.cscopes.ContactsGroup#summary:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactsGroup.summary
+UnflaggedApi: android.ext.cscopes.ContactsGroup#title:
+    New API must be flagged with @FlaggedApi: field android.ext.cscopes.ContactsGroup.title
+UnflaggedApi: android.ext.cscopes.ContactsGroup#writeToParcel(android.os.Parcel, int):
+    New API must be flagged with @FlaggedApi: method android.ext.cscopes.ContactsGroup.writeToParcel(android.os.Parcel,int)
 UnflaggedApi: android.ext.settings.BoolSetting:
     New API must be flagged with @FlaggedApi: class android.ext.settings.BoolSetting
 UnflaggedApi: android.ext.settings.BoolSetting#BoolSetting(android.ext.settings.Setting.Scope, String, boolean):
