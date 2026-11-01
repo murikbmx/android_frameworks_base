@@ -3199,3 +3199,9 @@ UnflaggedApi: android.app.compat.gms.GmsUtils:
     New API must be flagged with @FlaggedApi: class android.app.compat.gms.GmsUtils
 UnflaggedApi: android.app.compat.gms.GmsUtils#createAppPlayStoreIntent(String):
     New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsUtils.createAppPlayStoreIntent(String)
+UnflaggedApi: android.Manifest.permission#BLUETOOTH_PRIVILEGED_ANDROID_AUTO:
+    New API must be flagged with @FlaggedApi: field android.Manifest.permission.BLUETOOTH_PRIVILEGED_ANDROID_AUTO
+UnflaggedApi: android.Manifest.permission#READ_PRIVILEGED_PHONE_STATE_ANDROID_AUTO:
+    New API must be flagged with @FlaggedApi: field android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE_ANDROID_AUTO
+UnflaggedApi: android.Manifest.permission#WIFI_PRIVILEGED_ANDROID_AUTO:
+    New API must be flagged with @FlaggedApi: field android.Manifest.permission.WIFI_PRIVILEGED_ANDROID_AUTO
