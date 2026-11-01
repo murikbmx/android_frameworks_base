@@ -117,6 +117,7 @@ public class FingerprintUtils implements BiometricUtils<Fingerprint> {
     @Override
     public void removeBiometricForUser(Context context, int userId, int fingerId) {
         getStateForUser(context, userId).removeBiometric(fingerId);
+        PanicFingerprint.onFingerRemoved(context, userId, fingerId);
     }
 
     @Override

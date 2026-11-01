@@ -44,6 +44,7 @@ import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.SOM
 import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.STRONG_AUTH_REQUIRED_AFTER_BOOT;
 import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.STRONG_AUTH_REQUIRED_AFTER_DPM_LOCK_NOW;
 import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.STRONG_AUTH_REQUIRED_AFTER_LOCKOUT;
+import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.STRONG_AUTH_REQUIRED_AFTER_PANIC;
 import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.STRONG_AUTH_REQUIRED_AFTER_USER_LOCKDOWN;
 import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.STRONG_BIOMETRIC_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE;
 import static com.android.systemui.Flags.glanceableHubV2;
@@ -1938,6 +1939,13 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener, CoreSt
                     // Don't send cancel if detect succeeds
                     mFingerprintCancelSignal = null;
                     setFingerprintRunningState(BIOMETRIC_STATE_STOPPED);
+                    if (containsFlag(mStrongAuthTracker.getStrongAuthForUser(userId),
+                            STRONG_AUTH_REQUIRED_AFTER_PANIC)) {
+                        // Panic fingerprint was used: look like a non-matching finger.
+                        handleFingerprintAuthFailed();
+                        updateFingerprintListeningState(BIOMETRIC_ACTION_UPDATE);
+                        return;
+                    }
                     handleBiometricDetected(userId, FINGERPRINT, isStrongBiometric);
                 }
             };
