@@ -1787,3 +1787,19 @@ UnflaggedApi: android.os.IpcDataCache#MODULE_TELEPHONY:
     New API must be flagged with @FlaggedApi: field android.os.IpcDataCache.MODULE_TELEPHONY
 UnflaggedApi: android.provider.Settings.Config#getAllStrings():
     New API must be flagged with @FlaggedApi: method android.provider.Settings.Config.getAllStrings()
+UnflaggedApi: android.app.compat.gms.GmsModuleHooks:
+    New API must be flagged with @FlaggedApi: class android.app.compat.gms.GmsModuleHooks
+UnflaggedApi: android.app.compat.gms.GmsModuleHooks#deviceConfigGetProperty(String, String):
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsModuleHooks.deviceConfigGetProperty(String,String)
+UnflaggedApi: android.app.compat.gms.GmsModuleHooks#deviceConfigSetProperties(android.provider.DeviceConfig.Properties):
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsModuleHooks.deviceConfigSetProperties(android.provider.DeviceConfig.Properties)
+UnflaggedApi: android.app.compat.gms.GmsModuleHooks#deviceConfigSetProperty(String, String, String):
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsModuleHooks.deviceConfigSetProperty(String,String,String)
+UnflaggedApi: android.app.compat.gms.GmsModuleHooks#enableBluetoothAdapter():
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsModuleHooks.enableBluetoothAdapter()
+UnflaggedApi: android.app.compat.gms.GmsModuleHooks#enableNfc():
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsModuleHooks.enableNfc()
+UnflaggedApi: android.app.compat.gms.GmsModuleHooks#interceptSynchronousResultReceiverException(RuntimeException):
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsModuleHooks.interceptSynchronousResultReceiverException(RuntimeException)
+UnflaggedApi: android.app.compat.gms.GmsModuleHooks#makeBluetoothAdapterDiscoverable():
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsModuleHooks.makeBluetoothAdapterDiscoverable()

@@ -3171,3 +3171,31 @@ UserHandle: android.media.AudioManager#setProductStrategiesZoneIdForUser(android
     When a method overload is needed to target a specific UserHandle, callers should be directed to use Context.createPackageContextAsUser() and re-obtain the relevant Manager, and no new API should be added
 UserHandle: android.telecom.TelecomManager#isInSelfManagedCall(String, android.os.UserHandle):
     When a method overload is needed to target a specific UserHandle, callers should be directed to use Context.createPackageContextAsUser() and re-obtain the relevant Manager, and no new API should be added
+UnflaggedApi: android.app.compat.gms.AndroidAutoPackageFlag:
+    New API must be flagged with @FlaggedApi: class android.app.compat.gms.AndroidAutoPackageFlag
+UnflaggedApi: android.app.compat.gms.AndroidAutoPackageFlag#GRANT_AUDIO_ROUTING_PERM:
+    New API must be flagged with @FlaggedApi: field android.app.compat.gms.AndroidAutoPackageFlag.GRANT_AUDIO_ROUTING_PERM
+UnflaggedApi: android.app.compat.gms.AndroidAutoPackageFlag#GRANT_PERMS_FOR_ANDROID_AUTO_PHONE_CALLS:
+    New API must be flagged with @FlaggedApi: field android.app.compat.gms.AndroidAutoPackageFlag.GRANT_PERMS_FOR_ANDROID_AUTO_PHONE_CALLS
+UnflaggedApi: android.app.compat.gms.AndroidAutoPackageFlag#GRANT_PERMS_FOR_WIRED_ANDROID_AUTO:
+    New API must be flagged with @FlaggedApi: field android.app.compat.gms.AndroidAutoPackageFlag.GRANT_PERMS_FOR_WIRED_ANDROID_AUTO
+UnflaggedApi: android.app.compat.gms.AndroidAutoPackageFlag#GRANT_PERMS_FOR_WIRELESS_ANDROID_AUTO:
+    New API must be flagged with @FlaggedApi: field android.app.compat.gms.AndroidAutoPackageFlag.GRANT_PERMS_FOR_WIRELESS_ANDROID_AUTO
+UnflaggedApi: android.app.compat.gms.GmsCompat:
+    New API must be flagged with @FlaggedApi: class android.app.compat.gms.GmsCompat
+UnflaggedApi: android.app.compat.gms.GmsCompat#catchOrRethrow(SecurityException):
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsCompat.catchOrRethrow(SecurityException)
+UnflaggedApi: android.app.compat.gms.GmsCompat#hasPermission(String):
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsCompat.hasPermission(String)
+UnflaggedApi: android.app.compat.gms.GmsCompat#isAndroidAuto():
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsCompat.isAndroidAuto()
+UnflaggedApi: android.app.compat.gms.GmsCompat#isEnabled():
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsCompat.isEnabled()
+UnflaggedApi: android.app.compat.gms.GmsCompat#isEnabledFor(String, int):
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsCompat.isEnabledFor(String,int)
+UnflaggedApi: android.app.compat.gms.GmsCompat#isEnabledFor(android.content.pm.ApplicationInfo):
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsCompat.isEnabledFor(android.content.pm.ApplicationInfo)
+UnflaggedApi: android.app.compat.gms.GmsUtils:
+    New API must be flagged with @FlaggedApi: class android.app.compat.gms.GmsUtils
+UnflaggedApi: android.app.compat.gms.GmsUtils#createAppPlayStoreIntent(String):
+    New API must be flagged with @FlaggedApi: method android.app.compat.gms.GmsUtils.createAppPlayStoreIntent(String)
