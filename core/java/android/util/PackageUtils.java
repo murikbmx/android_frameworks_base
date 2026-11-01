@@ -19,6 +19,7 @@ package android.util;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
+import android.content.Context;
 import android.content.pm.Signature;
 import android.text.TextUtils;
 
