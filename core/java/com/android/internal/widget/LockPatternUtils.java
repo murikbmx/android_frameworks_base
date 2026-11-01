@@ -1238,6 +1238,30 @@ public class LockPatternUtils {
         return lockoutEndTime;
     }
 
+    /**
+     * Key of the enrolled fingerprint that silently triggers lockdown instead of unlocking.
+     * Stored in LockSettings so that it is not readable by regular apps.
+     * @hide
+     */
+    public static final String PANIC_FINGERPRINT_ID_KEY = "lockscreen.panic_fingerprint_id";
+
+    /** @hide */
+    public static final int PANIC_FINGERPRINT_NONE = 0;
+
+    /**
+     * @return biometric id of the panic fingerprint for the user, or
+     * {@link #PANIC_FINGERPRINT_NONE} if not set.
+     * @hide
+     */
+    public int getPanicFingerprintId(int userId) {
+        return (int) getLong(PANIC_FINGERPRINT_ID_KEY, PANIC_FINGERPRINT_NONE, userId);
+    }
+
+    /** @hide */
+    public void setPanicFingerprintId(int fingerprintId, int userId) {
+        setLong(PANIC_FINGERPRINT_ID_KEY, fingerprintId, userId);
+    }
+
     /** @hide */
     protected boolean getBoolean(String secureSettingKey, boolean defaultValue, int userId) {
         try {
@@ -1619,7 +1643,8 @@ public class LockPatternUtils {
                         SOME_AUTH_REQUIRED_AFTER_ADAPTIVE_AUTH_REQUEST,
                         SOME_AUTH_REQUIRED_AFTER_WATCH_DISCONNECTED,
                         PRIMARY_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE,
-                        STRONG_BIOMETRIC_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE
+                        STRONG_BIOMETRIC_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE,
+                        STRONG_AUTH_REQUIRED_AFTER_PANIC
                 })
         @Retention(RetentionPolicy.SOURCE)
         public @interface StrongAuthFlags {}
@@ -1707,6 +1732,14 @@ public class LockPatternUtils {
          * authentication are disabled.
          */
         public static final int STRONG_BIOMETRIC_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE = 0x1000;
+
+        /**
+         * Strong authentication is required because the panic fingerprint was used. Behaves like
+         * user lockdown (biometrics and trust agents disabled until the primary credential is
+         * entered) but keyguard shows no lockdown-specific UI.
+         * @hide
+         */
+        public static final int STRONG_AUTH_REQUIRED_AFTER_PANIC = 0x8000;
 
         /**
          * Strong auth flags that do not prevent biometric methods from being accepted as auth.

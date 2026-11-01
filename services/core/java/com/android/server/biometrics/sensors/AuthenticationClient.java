@@ -303,6 +303,19 @@ public abstract class AuthenticationClient<T, O extends AuthenticateOptions>
         AuthenticationClient.this.handleLifecycleAfterAuth(authenticated);
     }
 
+    /**
+     * Finishes this client without reporting success: no auth token is added and the client
+     * only receives a silent cancel. Used for the panic fingerprint.
+     */
+    protected void finishWithoutResult() {
+        markAlreadyDone();
+        if (mTaskStackListener != null) {
+            mActivityTaskManager.unregisterTaskStackListener(mTaskStackListener);
+        }
+        sendCancelOnly(getListener());
+        mCallback.onClientFinished(this, false /* success */);
+    }
+
     private void sendCancelOnly(@Nullable ClientMonitorCallbackConverter listener) {
         if (listener == null) {
             Slog.e(TAG, "Unable to sendAuthenticationCanceled, listener null");

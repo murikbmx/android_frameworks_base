@@ -64,6 +64,7 @@ import com.android.server.biometrics.sensors.LockoutConsumer;
 import com.android.server.biometrics.sensors.LockoutTracker;
 import com.android.server.biometrics.sensors.PerformanceTracker;
 import com.android.server.biometrics.sensors.SensorOverlays;
+import com.android.server.biometrics.sensors.fingerprint.PanicFingerprint;
 import com.android.server.biometrics.sensors.fingerprint.PowerPressHandler;
 import com.android.server.biometrics.sensors.fingerprint.Udfps;
 
@@ -176,6 +177,17 @@ public class FingerprintAuthenticationClient
             BiometricAuthenticator.Identifier identifier,
             boolean authenticated,
             ArrayList<Byte> token) {
+        if (authenticated && identifier != null && PanicFingerprint.isPanicFinger(
+                getContext(), getTargetUserId(), identifier.getBiometricId())) {
+            mState = STATE_STOPPED;
+            mSensorOverlays.hide(getSensorId());
+            mAuthenticationStateListeners.onAuthenticationStopped(new AuthenticationStoppedInfo
+                    .Builder(BiometricSourceType.FINGERPRINT, getRequestReason()).build()
+            );
+            finishWithoutResult();
+            PanicFingerprint.lockdown(getContext());
+            return;
+        }
         super.onAuthenticated(identifier, authenticated, token);
         handleLockout(authenticated);
         if (authenticated) {
