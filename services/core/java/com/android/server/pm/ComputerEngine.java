@@ -1482,8 +1482,6 @@ public class ComputerEngine implements Computer {
         return result;
     }
 
-    public static native boolean isDebuggable();
-
     public final PackageInfo generatePackageInfo(PackageStateInternal ps,
             @PackageManager.PackageInfoFlagsBits long flags, int userId) {
         if (!mUserManager.exists(userId)) return null;
