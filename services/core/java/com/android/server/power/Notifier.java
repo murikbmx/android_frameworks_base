@@ -127,6 +127,11 @@ public class Notifier {
     private static final int MSG_SCREEN_POLICY = 7;
     private static final int MSG_WIRED_CHARGING_DISCONNECTED = 8;
     private static final int MSG_WIRELESS_CHARGING_INTERRUPTED = 9;
+    private static final int MSG_CHARGING_COMPLETE = 10;
+
+    // Settings.Global key holding the sound played when charging completes (100% or the
+    // charging control limit). Unset means the default notification sound, "silent" means none.
+    private static final String CHARGING_COMPLETE_SOUND = "charging_complete_sound";
 
     private static final long[] CHARGING_VIBRATION_TIME = {
             40, 40, 40, 40, 40, 40, 40, 40, 40, // ramp-up sampling rate = 40ms
@@ -1076,6 +1081,22 @@ public class Notifier {
     }
 
     /**
+     * Called when the battery reached 100% or the charging control limit while charging -
+     * to provide user feedback (sound and vibration).
+     */
+    public void onChargingComplete(@UserIdInt int userId) {
+        if (DEBUG) {
+            Slog.d(TAG, "onChargingComplete");
+        }
+
+        mSuspendBlocker.acquire();
+        Message msg = mHandler.obtainMessage(MSG_CHARGING_COMPLETE);
+        msg.setAsynchronous(true);
+        msg.arg1 = userId;
+        mHandler.sendMessage(msg);
+    }
+
+    /**
      * Called when wired charging has started - to provide user feedback
      */
     public void onWiredChargingStarted(@UserIdInt int userId) {
@@ -1291,6 +1312,12 @@ public class Notifier {
     };
 
     private void playChargingStartedFeedback(@UserIdInt int userId, boolean wireless) {
+        playChargingFeedback(userId, wireless ? Settings.Global.WIRELESS_CHARGING_STARTED_SOUND
+                : Settings.Global.CHARGING_STARTED_SOUND, /* defaultSound= */ null);
+    }
+
+    private void playChargingFeedback(@UserIdInt int userId, String soundKey,
+            String defaultSound) {
         if (!isChargingFeedbackEnabled(userId)) {
             return;
         }
@@ -1313,10 +1340,12 @@ public class Notifier {
             }
 
             // play sound
-            final String soundPath = Settings.Global.getString(mContext.getContentResolver(),
-                    wireless ? Settings.Global.WIRELESS_CHARGING_STARTED_SOUND
-                            : Settings.Global.CHARGING_STARTED_SOUND);
-            if ("silent".equals(soundPath)) {
+            String soundPath = Settings.Global.getString(mContext.getContentResolver(),
+                    soundKey);
+            if (soundPath == null) {
+                soundPath = defaultSound;
+            }
+            if (soundPath == null || "silent".equals(soundPath)) {
                 mIsPlayingChargingStartedFeedback.set(false);
                 return;
             }
@@ -1349,6 +1378,12 @@ public class Notifier {
 
     private void showWiredChargingStarted(@UserIdInt int userId) {
         playChargingStartedFeedback(userId, false /* wireless */);
+        mSuspendBlocker.release();
+    }
+
+    private void showChargingComplete(@UserIdInt int userId) {
+        playChargingFeedback(userId, CHARGING_COMPLETE_SOUND,
+                Settings.System.DEFAULT_NOTIFICATION_URI.toString());
         mSuspendBlocker.release();
     }
 
@@ -1666,6 +1701,9 @@ public class Notifier {
                     break;
                 case MSG_WIRED_CHARGING_STARTED:
                     showWiredChargingStarted(msg.arg1);
+                    break;
+                case MSG_CHARGING_COMPLETE:
+                    showChargingComplete(msg.arg1);
                     break;
                 case MSG_SCREEN_POLICY:
                     screenPolicyChanging(msg.arg1, msg.arg2);
