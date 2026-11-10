@@ -1295,6 +1295,17 @@ public final class PowerManagerService extends SystemService
 
     private boolean mProximityWakeSupported;
     private boolean mProximityWakeEnabled;
+
+    // Charging-complete feedback: the charging control limit when limit mode is active,
+    // otherwise 0 (no limit). Feedback plays once at the limit and once at 100%.
+    private int mChargingLimitLevel;
+    // Per charging session: whether the limit / 100% feedback was already played (or the
+    // level was already reached when the power source was connected).
+    private boolean mChargingLimitDone;
+    private boolean mChargingFullDone;
+    private boolean mChargingControlEnabledDefault;
+    private int mChargingControlModeDefault;
+    private int mChargingControlLimitDefault;
     private int mProximityTimeOut;
     private SensorManager mSensorManager;
     private Sensor mProximitySensor;
@@ -1359,6 +1370,13 @@ public final class PowerManagerService extends SystemService
         mKeyboardBrightnessDefault = mContext.getResources().getFloat(
                 org.lineageos.platform.internal.R.dimen
                         .config_keyboardBrightnessSettingDefaultFloat);
+
+        mChargingControlEnabledDefault = mContext.getResources().getBoolean(
+                org.lineageos.platform.internal.R.bool.config_chargingControlEnabled);
+        mChargingControlModeDefault = mContext.getResources().getInteger(
+                org.lineageos.platform.internal.R.integer.config_defaultChargingControlMode);
+        mChargingControlLimitDefault = mContext.getResources().getInteger(
+                org.lineageos.platform.internal.R.integer.config_defaultChargingControlLimit);
 
         // Save brightness values:
         // Get float values from config.
@@ -1674,6 +1692,15 @@ public final class PowerManagerService extends SystemService
         resolver.registerContentObserver(LineageSettings.Secure.getUriFor(
                 LineageSettings.Secure.KEYBOARD_BRIGHTNESS),
                 false, mSettingsObserver, UserHandle.USER_ALL);
+        resolver.registerContentObserver(LineageSettings.System.getUriFor(
+                LineageSettings.System.CHARGING_CONTROL_ENABLED),
+                false, mSettingsObserver, UserHandle.USER_ALL);
+        resolver.registerContentObserver(LineageSettings.System.getUriFor(
+                LineageSettings.System.CHARGING_CONTROL_MODE),
+                false, mSettingsObserver, UserHandle.USER_ALL);
+        resolver.registerContentObserver(LineageSettings.System.getUriFor(
+                LineageSettings.System.CHARGING_CONTROL_LIMIT),
+                false, mSettingsObserver, UserHandle.USER_ALL);
 
         // Register for broadcasts from other components of the system.
         IntentFilter filter = new IntentFilter();
@@ -1828,6 +1855,20 @@ public final class PowerManagerService extends SystemService
         mButtonLightOnKeypressOnly = LineageSettings.System.getIntForUser(resolver,
                 LineageSettings.System.BUTTON_BACKLIGHT_ONLY_WHEN_PRESSED,
                 0, UserHandle.USER_CURRENT) == 1;
+
+        // Charging control settings are owned by the system user (see lineage health service).
+        final boolean chargingControlEnabled = LineageSettings.System.getIntForUser(resolver,
+                LineageSettings.System.CHARGING_CONTROL_ENABLED,
+                mChargingControlEnabledDefault ? 1 : 0, UserHandle.USER_SYSTEM) != 0;
+        final int chargingControlMode = LineageSettings.System.getIntForUser(resolver,
+                LineageSettings.System.CHARGING_CONTROL_MODE,
+                mChargingControlModeDefault, UserHandle.USER_SYSTEM);
+        final int chargingControlLimit = LineageSettings.System.getIntForUser(resolver,
+                LineageSettings.System.CHARGING_CONTROL_LIMIT,
+                mChargingControlLimitDefault, UserHandle.USER_SYSTEM);
+        mChargingLimitLevel = chargingControlEnabled
+                && chargingControlMode == lineageos.health.HealthInterface.MODE_LIMIT
+                && chargingControlLimit < 100 ? chargingControlLimit : 0;
         mKeyboardBrightness = LineageSettings.Secure.getFloatForUser(resolver,
                 LineageSettings.Secure.KEYBOARD_BRIGHTNESS, mKeyboardBrightnessDefault,
                 UserHandle.USER_CURRENT);
@@ -3074,10 +3115,46 @@ public final class PowerManagerService extends SystemService
                 }
             }
 
+            updateChargingCompleteLocked(wasPowered);
+
             if (mBatterySaverSupported) {
                 mBatterySaverStateMachine.setBatteryStatus(mIsPowered, mBatteryLevel,
                         mBatteryLevelLow);
             }
+        }
+    }
+
+    /**
+     * Plays the charging-complete feedback once per charging session when the battery level
+     * reaches the charging control limit (if limit mode is active), and once when it
+     * reaches 100%.
+     */
+    @GuardedBy("mLock")
+    private void updateChargingCompleteLocked(boolean wasPowered) {
+        if (!mIsPowered) {
+            return;
+        }
+        final boolean limitReached = mChargingLimitLevel > 0
+                && mBatteryLevel >= mChargingLimitLevel;
+        final boolean fullReached = mBatteryLevel >= 100;
+        if (!wasPowered) {
+            // New charging session: levels already reached when plugging in stay silent.
+            mChargingLimitDone = limitReached;
+            mChargingFullDone = fullReached;
+            return;
+        }
+        boolean play = false;
+        if (limitReached && !mChargingLimitDone) {
+            mChargingLimitDone = true;
+            play = true;
+        }
+        if (fullReached && !mChargingFullDone) {
+            mChargingFullDone = true;
+            // Don't play twice if the limit is 100% or both were reached at once.
+            play = true;
+        }
+        if (play && mBootCompleted) {
+            mNotifier.onChargingComplete(mUserId);
         }
     }
 
