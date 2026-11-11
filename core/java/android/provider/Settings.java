@@ -8425,6 +8425,15 @@ public final class Settings {
                 "status_bar_mobile_type_overlay";
 
         /**
+         * How the LTE network type is shown: 0 follows the carrier configuration, 1 always
+         * shows LTE and 2 always shows 4G.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String STATUS_BAR_LTE_ICON_STYLE = "status_bar_lte_icon_style";
+
+        /**
          * Time in milliseconds an app locked by App Lock stays unlocked after the user leaves it.
          *
          * @hide
