@@ -8414,7 +8414,24 @@ public final class Settings {
         @Readable
         public static final String IME_NAV_BAR_SPACE_HIDDEN = "ime_nav_bar_space_hidden";
 
+        /**
+         * Whether to draw the mobile network type small over the signal icon in the status bar
+         * instead of next to it.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String STATUS_BAR_MOBILE_TYPE_OVERLAY =
+                "status_bar_mobile_type_overlay";
 
+        /**
+         * How the LTE network type is shown: 0 follows the carrier configuration, 1 always
+         * shows LTE and 2 always shows 4G.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String STATUS_BAR_LTE_ICON_STYLE = "status_bar_lte_icon_style";
 
         /**
          * Time in milliseconds an app locked by App Lock stays unlocked after the user leaves it.
@@ -8423,6 +8440,15 @@ public final class Settings {
          */
         @Readable
         public static final String APP_LOCK_GRACE_PERIOD = "app_lock_grace_period";
+
+        /**
+         * Whether the shade header shows VoLTE or VoWiFi next to the carrier name while IMS is
+         * registered.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String SHADE_IMS_STATUS = "shade_ims_status";
 
         /**
          * Whether the power menu requires the device to be unlocked first while a secure
