@@ -70,6 +70,7 @@ import android.view.Window;
 import android.view.WindowManagerGlobal;
 
 import com.android.internal.content.ReferrerIntent;
+import com.android.internal.util.GooglePhotosHooks;
 
 import java.io.File;
 import java.lang.annotation.Retention;
@@ -1360,6 +1361,7 @@ public class Instrumentation {
             ClassNotFoundException {
         Application app = getFactory(context.getPackageName())
                 .instantiateApplication(cl, className);
+        GooglePhotosHooks.onNewApplication(context);
         app.attach(context);
         return app;
     }
@@ -1378,6 +1380,7 @@ public class Instrumentation {
             throws InstantiationException, IllegalAccessException, 
             ClassNotFoundException {
         Application app = (Application)clazz.newInstance();
+        GooglePhotosHooks.onNewApplication(context);
         app.attach(context);
         return app;
     }

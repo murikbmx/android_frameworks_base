@@ -144,6 +144,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.os.ApplicationSharedMemory;
 import com.android.internal.os.SomeArgs;
 import com.android.internal.pm.RoSystemFeatures;
+import com.android.internal.util.GooglePhotosHooks;
 import com.android.internal.util.UserIcons;
 
 import dalvik.system.VMRuntime;
@@ -848,6 +849,10 @@ public class ApplicationPackageManager extends PackageManager {
         //    * IPC-retrieved system features (lazily cached, requires per-feature IPC)
         // TODO(b/375000483): Refactor all of this logic, including flag queries, into
         // the SystemFeaturesCache class after initial rollout and validation.
+        Boolean spoofedFeature = GooglePhotosHooks.hasSystemFeature(name);
+        if (spoofedFeature != null) {
+            return spoofedFeature;
+        }
         Boolean maybeHasSystemFeature = RoSystemFeatures.maybeHasFeature(name, version);
         if (maybeHasSystemFeature != null) {
             return maybeHasSystemFeature;
