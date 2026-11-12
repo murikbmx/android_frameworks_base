@@ -14,17 +14,26 @@
      limitations under the License.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="13.24dp"
-    android:height="15dp"
-    android:viewportWidth="15"
-    android:viewportHeight="17">
+    android:width="14.08dp"
+    android:height="15.84dp"
+    android:viewportWidth="15.952"
+    android:viewportHeight="17.952">
+    <!-- Bolder glyphs: every path gets a stroke of its fill color. -->
+    <group android:translateX="0.476" android:translateY="0.476">
 
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M7.01,13.48H5.75v-4.6H1.74v4.6H0.49V3.52h1.25V7.8h4.01V3.52h1.26V13.48z" />
+        android:pathData="M7.01,13.48H5.75v-4.6H1.74v4.6H0.49V3.52h1.25V7.8h4.01V3.52h1.26V13.48z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="0.952"
+        android:strokeLineJoin="round"/>
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M 12.16 5.74 L 12.16 3.39 L 10.86 3.39 L 10.86 5.74 L 8.51 5.74 L 8.51 7.04 L 10.86 7.04 L 10.86 9.39 L 12.16 9.39 L 12.16 7.04 L 14.51 7.04 L 14.51 5.74 Z" />
+        android:pathData="M 12.16 5.74 L 12.16 3.39 L 10.86 3.39 L 10.86 5.74 L 8.51 5.74 L 8.51 7.04 L 10.86 7.04 L 10.86 9.39 L 12.16 9.39 L 12.16 7.04 L 14.51 7.04 L 14.51 5.74 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="0.952"
+        android:strokeLineJoin="round"/>
     <path
         android:pathData="M 0 0 H 15 V 17 H 0 V 0 Z" />
+    </group>
 </vector>
