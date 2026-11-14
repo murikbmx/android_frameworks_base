@@ -22,6 +22,8 @@ import com.android.systemui.qs.shared.model.TileCategory
 import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
+import com.android.systemui.CoreStartable
+import com.android.systemui.lineage.sidebar.SidebarController
 import com.android.systemui.qs.tiles.CaffeineTile
 import com.android.systemui.qs.tiles.MediaPlayerTile
 import com.android.systemui.qs.tiles.HeadsUpTile
@@ -38,11 +40,18 @@ import com.android.systemui.res.R
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
+import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
 import dagger.multibindings.StringKey
 
 @Module
 interface LineageModule {
+    /** Start the edge sidebar */
+    @Binds
+    @IntoMap
+    @ClassKey(SidebarController::class)
+    fun bindSidebarController(sidebarController: SidebarController): CoreStartable
+
     /** Inject AmbientDisplayTile into tileMap in QSModule */
     @Binds
     @IntoMap

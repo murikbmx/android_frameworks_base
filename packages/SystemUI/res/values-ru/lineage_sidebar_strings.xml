@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="sidebar_add_app">Добавить приложение</string>
+    <string name="sidebar_remove_app">Убрать</string>
+    <string name="sidebar_move_up">Выше</string>
+    <string name="sidebar_move_down">Ниже</string>
+</resources>
