@@ -16,10 +16,14 @@
 
 package com.android.systemui.qs.panels.ui.viewmodel
 
+import androidx.compose.runtime.getValue
 import com.android.systemui.lifecycle.ExclusiveActivatable
 import com.android.systemui.lifecycle.Hydrator
 import com.android.systemui.media.controls.ui.controller.MediaHierarchyManager.Companion.LOCATION_QS
+import com.android.systemui.qs.panels.domain.interactor.MediaTileInteractor
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
+import com.android.systemui.qs.panels.shared.model.groupWithMediaTile
+import com.android.systemui.qs.panels.shared.model.splitGroupedIntoPages
 import com.android.systemui.qs.panels.ui.dialog.QSResetDialogDelegate
 import com.android.systemui.qs.panels.ui.viewmodel.PaginatableViewModel.Companion.splitInRows
 import com.android.systemui.qs.pipeline.shared.TileSpec
@@ -39,8 +43,13 @@ constructor(
     val snapshotViewModelFactory: InfiniteGridSnapshotViewModel.Factory,
     val resetDialogDelegateFactory: QSResetDialogDelegate.Factory,
     val editTopBarActionsViewModelFactory: EditTopBarActionsViewModel.Factory,
+    private val mediaTileInteractor: MediaTileInteractor,
 ) : ExclusiveActivatable(), PaginatableViewModel {
     private val hydrator = Hydrator("InfiniteGridViewModel.hydrator")
+
+    // Snapshot state so that the pages are recomputed when the music player tile is resized
+    private val mediaSize by
+        hydrator.hydratedStateOf(traceName = "mediaSize", source = mediaTileInteractor.size)
 
     val iconTilesViewModel = dynamicIconTilesViewModelFactory.create()
     val columnsWithMediaViewModel =
@@ -55,15 +64,20 @@ constructor(
                 columnsWithMediaViewModel.columns,
                 columnsWithMediaViewModel.largeSpan,
                 iconTilesViewModel.largeTilesState.value,
+                mediaSize,
             )
 
     override fun splitIntoPages(tiles: List<TileViewModel>, rows: Int): List<List<TileViewModel>> {
-        return splitInRows(
+        val columns = columnsWithMediaViewModel.columns
+        val grouped =
+            groupWithMediaTile(
                 tiles.map { SizedTileImpl(it, widthOf(it.spec)) },
-                columnsWithMediaViewModel.columns,
-            )
-            .chunked(rows)
-            .map { it.flatten().map { it.tile } }
+                columns,
+                mediaSize,
+            ) {
+                it.spec == MediaTileInteractor.SPEC
+            }
+        return splitGroupedIntoPages(grouped, columns, rows)
     }
 
     private fun widthOf(spec: TileSpec): Int {

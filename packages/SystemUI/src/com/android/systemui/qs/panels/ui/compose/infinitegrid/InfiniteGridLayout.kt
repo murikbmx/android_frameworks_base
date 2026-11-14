@@ -16,6 +16,13 @@
 
 package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,7 +43,12 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.grid.ui.compose.VerticalSpannedGrid
 import com.android.systemui.haptics.msdl.qs.TileHapticsViewModel
 import com.android.systemui.lifecycle.rememberViewModel
+import com.android.systemui.qs.panels.domain.interactor.MediaTileInteractor
+import com.android.systemui.qs.panels.shared.model.MediaTileSize
+import com.android.systemui.qs.panels.shared.model.QSGridItem
+import com.android.systemui.qs.panels.shared.model.SizedTile
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
+import com.android.systemui.qs.panels.shared.model.groupWithMediaTile
 import com.android.systemui.qs.panels.ui.compose.EditTileListState
 import com.android.systemui.qs.panels.ui.compose.PaginatableGridLayout
 import com.android.systemui.qs.panels.ui.compose.TileListener
@@ -64,6 +76,7 @@ constructor(
     override val viewModelFactory: InfiniteGridViewModel.Factory,
     private val textFeedbackContentViewModelFactory: TextFeedbackContentViewModel.Factory,
     private val tileHapticsViewModelFactory: TileHapticsViewModel.Factory,
+    private val mediaTileInteractor: MediaTileInteractor,
 ) : PaginatableGridLayout {
 
     @Composable
@@ -97,40 +110,113 @@ constructor(
         val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
         val scope = rememberCoroutineScope()
 
+        val mediaSize by mediaTileInteractor.size.collectAsStateWithLifecycle()
+        val items =
+            remember(sizedTiles, columns, mediaSize) {
+                groupWithMediaTile(sizedTiles, columns, mediaSize) {
+                    it.spec == MediaTileInteractor.SPEC
+                }
+            }
         val bounceables =
             remember(sizedTiles) { List(sizedTiles.size) { BounceableTileViewModel() } }
-        val spans by remember(sizedTiles) { derivedStateOf { sizedTiles.fastMap { it.width } } }
-        VerticalSpannedGrid(
-            columns = columns,
-            columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal),
-            rowSpacing = dimensionResource(R.dimen.qs_tile_margin_vertical),
-            spans = spans,
-            keys = { sizedTiles[it].tile.spec },
-            modifier = modifier,
-        ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
-            val it = sizedTiles[spanIndex]
+        val indexOfSpec =
+            remember(sizedTiles) {
+                sizedTiles.withIndex().associate { (index, tile) -> tile.tile.spec to index }
+            }
+        val spans by
+            remember(items, columns) {
+                derivedStateOf {
+                    items.fastMap {
+                        when (it) {
+                            is QSGridItem.Single -> it.sizedTile.width
+                            is QSGridItem.MediaBlock -> columns
+                        }
+                    }
+                }
+            }
+        val columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal)
+        val rowSpacing = dimensionResource(R.dimen.qs_tile_margin_vertical)
+        val tileHeight = CommonTileDefaults.TileHeight
 
-            Element(it.tile.spec.toElementKey(), Modifier) {
+        @Composable
+        fun GridTile(sized: SizedTile<TileViewModel>, column: Int, first: Boolean, last: Boolean) {
+            val index = indexOfSpec[sized.tile.spec] ?: return
+            Element(sized.tile.spec.toElementKey(), Modifier) {
                 Tile(
-                    tile = it.tile,
-                    iconOnly = iconTilesViewModel.isIconTile(it.tile.spec),
+                    tile = sized.tile,
+                    iconOnly = iconTilesViewModel.isIconTile(sized.tile.spec),
                     squishiness = { squishiness },
                     tileHapticsViewModelFactory = tileHapticsViewModelFactory,
                     coroutineScope = scope,
                     bounceableInfo =
                         bounceables.bounceableInfo(
-                            it,
-                            index = spanIndex,
+                            sized,
+                            index = index,
                             column = column,
                             columns = columns,
-                            isFirstInRow = isFirstInColumn,
-                            isLastInRow = isLastInColumn,
+                            isFirstInRow = first,
+                            isLastInRow = last,
                         ),
                     detailsViewModel = detailsViewModel,
                     isVisible = listening,
                     requestToggleTextFeedback = textFeedbackViewModel::requestShowFeedback,
                     enableRevealEffect = enableRevealEffect,
                 )
+            }
+        }
+
+        VerticalSpannedGrid(
+            columns = columns,
+            columnSpacing = columnSpacing,
+            rowSpacing = rowSpacing,
+            spans = spans,
+            keys = { items[it].tiles.first().spec },
+            modifier = modifier,
+        ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
+            when (val item = items[spanIndex]) {
+                is QSGridItem.Single ->
+                    GridTile(item.sizedTile, column, isFirstInColumn, isLastInColumn)
+                is QSGridItem.MediaBlock ->
+                    BoxWithConstraints(Modifier.verticalSquish { squishiness }) {
+                        val cell = (maxWidth - columnSpacing * (columns - 1)) / columns
+                        val blockHeight = tileHeight * item.rows + rowSpacing * (item.rows - 1)
+                        Row(horizontalArrangement = Arrangement.spacedBy(columnSpacing)) {
+                            Element(item.media.spec.toElementKey(), Modifier) {
+                                MediaPlayerTileContent(
+                                    interactor = mediaTileInteractor,
+                                    size = mediaSize,
+                                    modifier =
+                                        Modifier.size(
+                                            width =
+                                                cell * item.playerColumns +
+                                                    columnSpacing * (item.playerColumns - 1),
+                                            height = blockHeight,
+                                        ),
+                                )
+                            }
+                            if (item.sideColumns > 0) {
+                                Column(verticalArrangement = Arrangement.spacedBy(rowSpacing)) {
+                                    item.side.chunked(item.sideColumns).forEach { rowTiles ->
+                                        Row(
+                                            horizontalArrangement =
+                                                Arrangement.spacedBy(columnSpacing)
+                                        ) {
+                                            rowTiles.forEachIndexed { i, tile ->
+                                                Box(Modifier.width(cell)) {
+                                                    GridTile(
+                                                        SizedTileImpl(tile, 1),
+                                                        column = item.playerColumns + i,
+                                                        first = false,
+                                                        last = i == rowTiles.size - 1,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
             }
         }
 
@@ -195,6 +281,7 @@ constructor(
                     largeTiles,
                     columns = columns,
                     largeTilesSpan = largeTilesSpan,
+                    initialMediaWidth = mediaTileInteractor.size.value.columns,
                 )
             }
         LaunchedEffect(currentTiles, largeTiles) { listState.updateTiles(currentTiles, largeTiles) }
@@ -228,6 +315,9 @@ constructor(
                 }
                 is EditAction.ResizeTile -> {
                     iconTilesViewModel.resize(action.tileSpec, action.toIcon)
+                }
+                is EditAction.ResizeMediaTile -> {
+                    mediaTileInteractor.setSize(MediaTileSize.fromColumns(action.width))
                 }
                 is EditAction.SetTiles -> {
                     onSetTiles(action.tileSpecs)

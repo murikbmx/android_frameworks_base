@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Music player quick settings tile -->
+    <string name="quick_settings_media_player_label">Music player</string>
+    <string name="qs_media_tile_nothing_playing">Nothing playing</string>
+    <string name="qs_media_tile_size">Tile size</string>
+    <string name="qs_media_tile_previous">Previous track</string>
+    <string name="qs_media_tile_next">Next track</string>
+    <string name="qs_media_tile_play">Play</string>
+    <string name="qs_media_tile_pause">Pause</string>
+</resources>

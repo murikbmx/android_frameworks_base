@@ -166,6 +166,7 @@ import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.common.ui.compose.load
 import com.android.systemui.common.ui.icons.Undo
 import com.android.systemui.compose.modifiers.sysuiResTag
+import com.android.systemui.qs.panels.domain.interactor.MediaTileInteractor
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
 import com.android.systemui.qs.panels.ui.compose.DragAndDropState
 import com.android.systemui.qs.panels.ui.compose.DragType
@@ -216,6 +217,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -233,6 +235,9 @@ sealed interface EditAction {
     data class SetTiles(val tileSpecs: List<TileSpec>) : EditAction
 
     data class ResizeTile(val tileSpec: TileSpec, val toIcon: Boolean) : EditAction
+
+    /** The music player tile was resized to [width] columns. */
+    data class ResizeMediaTile(val width: Int) : EditAction
 
     data object ResetGrid : EditAction
 }
@@ -649,6 +654,10 @@ private fun CurrentTilesGrid(
             gridState = gridState,
             coroutineScope = coroutineScope,
             onRemoveTile = { onEditAction(EditAction.RemoveTile(it)) },
+            onMediaResize = { width, final ->
+                currentListState.resizeMediaTile(width)
+                if (final) onEditAction(EditAction.ResizeMediaTile(width))
+            },
         ) { resizingOperation ->
             when (resizingOperation) {
                 is TemporaryResizeOperation -> {
@@ -853,6 +862,7 @@ fun LazyGridScope.EditTiles(
     gridState: LazyGridState,
     coroutineScope: CoroutineScope,
     onRemoveTile: (TileSpec) -> Unit,
+    onMediaResize: (width: Int, final: Boolean) -> Unit = { _, _ -> },
     onResize: (operation: ResizeOperation) -> Unit,
 ) {
     itemsIndexed(
@@ -882,6 +892,7 @@ fun LazyGridScope.EditTiles(
                         selectionState = selectionState,
                         gridState = gridState,
                         onResize = onResize,
+                        onMediaResize = onMediaResize,
                         onRemoveTile = onRemoveTile,
                         coroutineScope = coroutineScope,
                         largeTilesSpan = listState.largeTilesSpan,
@@ -920,16 +931,30 @@ private fun LazyGridItemScope.TileGridCell(
     selectionState: MutableSelectionState,
     gridState: LazyGridState,
     onResize: (operation: ResizeOperation) -> Unit,
+    onMediaResize: (width: Int, final: Boolean) -> Unit,
     onRemoveTile: (TileSpec) -> Unit,
     coroutineScope: CoroutineScope,
     largeTilesSpan: Int,
     modifier: Modifier = Modifier,
 ) {
+    val isMediaTile = cell.tile.tileSpec == MediaTileInteractor.SPEC
     val stateDescription = stringResource(id = R.string.accessibility_qs_edit_position, index + 1)
     val tileState by rememberTileState(cell.tile, selectionState)
     val resizingState = rememberResizingState(cell.tile.tileSpec, cell.isIcon)
 
-    if (tileState == TileState.Selected) {
+    if (tileState == TileState.Selected && isMediaTile) {
+        // The music player tile takes 2, 3 or 4 columns
+        LaunchedEffect(resizingState) {
+            snapshotFlow { resizingState.mediaWidth }
+                .drop(1)
+                .onEach { onMediaResize(it, false) }
+                .launchIn(this)
+            snapshotFlow { resizingState.settledMediaWidth }
+                .drop(1)
+                .onEach { onMediaResize(it, true) }
+                .launchIn(this)
+        }
+    } else if (tileState == TileState.Selected) {
         // If the tile is selected, listen to new target values from the draggable anchor to toggle
         // the tile's size
         LaunchedEffect(resizingState) {
@@ -944,13 +969,18 @@ private fun LazyGridItemScope.TileGridCell(
 
     val tilePadding = with(LocalDensity.current) { TileArrangementPadding.roundToPx() }
     var anchorsData: QSDragAnchorsData? by remember { mutableStateOf(null) }
+    var mediaSpan by remember { mutableStateOf(0) }
 
     val scope = rememberCoroutineScope()
     LaunchedEffect(resizingState.isDragActive, anchorsData, scope) {
         anchorsData?.let {
             // Avoid changing anchors during drag gestures as this will snap the drag handle to the
             // closest anchor
-            if (!resizingState.isDragActive) {
+            if (!resizingState.isDragActive && isMediaTile && mediaSpan > 0) {
+                val cellWidth = (it.width - tilePadding * (mediaSpan - 1)) / mediaSpan
+                resizingState.updateMediaAnchors(cellWidth, tilePadding)
+                scope.launch { resizingState.updateMediaWidth(mediaSpan) }
+            } else if (!resizingState.isDragActive && !isMediaTile) {
                 resizingState.updateAnchors(it, largeTilesSpan, tilePadding)
 
                 // Launching the animation in a separate scope to avoid cancelling ongoing
@@ -965,7 +995,10 @@ private fun LazyGridItemScope.TileGridCell(
             .map { layoutInfo ->
                 layoutInfo.visibleItemsInfo
                     .find { it.key == cell.key }
-                    ?.let { QSDragAnchorsData(it.span == 1, it.size.width) }
+                    ?.let {
+                        mediaSpan = it.span
+                        QSDragAnchorsData(it.span == 1, it.size.width)
+                    }
             }
             .filterNotNull()
             .distinctUntilChanged()
@@ -1009,7 +1042,10 @@ private fun LazyGridItemScope.TileGridCell(
             if (tileState == TileState.Removable) {
                 removeTile()
             } else if (tileState == TileState.Selected) {
-                coroutineScope.launch { resizingState.toggleCurrentValue() }
+                coroutineScope.launch {
+                    if (isMediaTile) resizingState.cycleMediaWidth()
+                    else resizingState.toggleCurrentValue()
+                }
             }
         },
         contentDescription = decorationClickLabel,

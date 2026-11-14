@@ -29,6 +29,7 @@ import com.android.systemui.qs.panels.ui.model.GridCell
 import com.android.systemui.qs.panels.ui.model.TileGridCell
 import com.android.systemui.qs.panels.ui.model.toGridCells
 import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
+import com.android.systemui.qs.panels.domain.interactor.MediaTileInteractor
 import com.android.systemui.qs.pipeline.shared.TileSpec
 
 /**
@@ -40,7 +41,12 @@ class EditTileListState(
     initialLargeTiles: Set<TileSpec>,
     val columns: Int,
     val largeTilesSpan: Int,
+    initialMediaWidth: Int = 0,
 ) : DragAndDropState {
+    /** Width (in columns) of the music player tile, 0 if it has no special width. */
+    var mediaWidth: Int = initialMediaWidth
+        private set
+
     override var draggedCell by mutableStateOf<SizedTile<EditTileViewModel>?>(null)
         private set
 
@@ -116,12 +122,34 @@ class EditTileListState(
         if (fromIndex != INVALID_INDEX) {
             val cell = _tiles[fromIndex] as TileGridCell
 
-            if (cell.isIcon == toIcon) return
+            if (cell.isIcon == toIcon || isMedia(tileSpec)) return
 
             _tiles[fromIndex] = cell.copy(width = if (toIcon) 1 else largeTilesSpan)
             regenerateGrid(fromIndex)
         }
     }
+
+    /** Set the width of the music player tile, in columns. */
+    fun resizeMediaTile(width: Int) {
+        mediaWidth = width
+        val fromIndex = _tiles.indexOfFirst { it is TileGridCell && isMedia(it.tile.tileSpec) }
+        if (fromIndex != INVALID_INDEX) {
+            val cell = _tiles[fromIndex] as TileGridCell
+            val newWidth = width.coerceIn(1, columns)
+            if (cell.width == newWidth) return
+            _tiles[fromIndex] = cell.copy(width = newWidth)
+            regenerateGrid(fromIndex)
+        }
+    }
+
+    private fun isMedia(spec: TileSpec) = spec == MediaTileInteractor.SPEC
+
+    private fun widthOf(spec: TileSpec, largeTiles: Set<TileSpec>): Int =
+        when {
+            isMedia(spec) && mediaWidth > 0 -> mediaWidth.coerceIn(1, columns)
+            largeTiles.contains(spec) -> largeTilesSpan
+            else -> 1
+        }
 
     override fun isMoving(tileSpec: TileSpec): Boolean {
         return draggedCell?.let { it.tile.tileSpec == tileSpec } ?: false
@@ -148,7 +176,21 @@ class EditTileListState(
         } else {
             // Add the tile with a temporary row/col which will get reassigned when
             // regenerating spacers
-            _tiles.add(insertionIndex.coerceIn(0, _tiles.size), TileGridCell(draggedTile, 0, 0))
+            _tiles.add(
+                insertionIndex.coerceIn(0, _tiles.size),
+                TileGridCell(
+                    SizedTileImpl(
+                        draggedTile.tile,
+                        if (isMedia(draggedTile.tile.tileSpec)) {
+                            widthOf(draggedTile.tile.tileSpec, largeTilesSpecs)
+                        } else {
+                            draggedTile.width
+                        },
+                    ),
+                    0,
+                    0,
+                ),
+            )
         }
 
         regenerateGrid()
@@ -217,9 +259,7 @@ class EditTileListState(
     }
 
     private fun List<EditTileViewModel>.toGridCells(largeTiles: Set<TileSpec>): List<GridCell> {
-        return map {
-                SizedTileImpl(it, if (largeTiles.contains(it.tileSpec)) largeTilesSpan else 1)
-            }
+        return map { SizedTileImpl(it, widthOf(it.tileSpec, largeTiles)) }
             .toGridCells(columns)
     }
 
