@@ -31,6 +31,8 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.Slog;
 import android.view.Display;
 import android.view.DisplayInfo;
@@ -91,6 +93,11 @@ final class ColorFade {
     private boolean mCreatedResources;
     private int mMode;
 
+    // Old CRT TV turning off effect instead of the cool down, see isCrtScreenOffEnabled()
+    private boolean mCrtMode;
+    // The screen is held sideways: the picture collapses along the other axis
+    private boolean mCrtSideways;
+
     private final DisplayManagerInternal mDisplayManagerInternal;
     private int mDisplayLayerStack; // layer stack associated with primary display
     private int mDisplayWidth;      // real width, not rotated
@@ -141,6 +148,15 @@ final class ColorFade {
      */
     public static final int MODE_FADE = 2;
 
+    /** Settings.System key of the CRT TV screen off effect. */
+    public static final String SCREEN_OFF_CRT = "lineage_screen_off_crt";
+
+    // Progress of the CRT effect at which the picture is a line, then a dot
+    private static final float CRT_LINE_END = 0.5f;
+    private static final float CRT_DOT_END = 0.85f;
+    private static final float CRT_LINE_SCALE = 0.006f;
+    private static final float CRT_DOT_SCALE = 0.012f;
+
     public ColorFade(int displayId) {
         this(displayId, LocalServices.getService(DisplayManagerInternal.class));
     }
@@ -164,6 +180,8 @@ final class ColorFade {
         }
 
         mMode = mode;
+        mCrtMode = mode == MODE_COOL_DOWN && mDisplayId == Display.DEFAULT_DISPLAY
+                && isCrtScreenOffEnabled(context);
 
         DisplayInfo displayInfo = mDisplayManagerInternal.getDisplayInfo(mDisplayId);
         if (displayInfo == null) {
@@ -176,6 +194,8 @@ final class ColorFade {
         // This is not expected to change while the color fade surface is showing.
         mDisplayLayerStack = displayInfo.layerStack;
         mDisplayWidth = displayInfo.getNaturalWidth();
+        mCrtSideways = displayInfo.rotation == Surface.ROTATION_90
+                || displayInfo.rotation == Surface.ROTATION_270;
         mDisplayHeight = displayInfo.getNaturalHeight();
 
         final boolean isWideColor = displayInfo.colorMode == Display.COLOR_MODE_DISPLAY_P3;
@@ -471,7 +491,11 @@ final class ColorFade {
             double sign = cos < 0 ? -1 : 1;
             float opacity = (float) -Math.pow(one_minus_level, 2) + 1;
             float gamma = (float) ((0.5d * sign * Math.pow(cos, 2) + 0.5d) * 0.9d + 0.1d);
-            drawFaded(opacity, 1.f / gamma);
+            if (mCrtMode) {
+                drawCrt(level);
+            } else {
+                drawFaded(opacity, 1.f / gamma);
+            }
             if (checkGlErrors("drawFrame")) {
                 return false;
             }
@@ -481,6 +505,55 @@ final class ColorFade {
             detachEglContext();
         }
         return showSurface(1.0f);
+    }
+
+    /** Whether the screen turns off like an old CRT TV, set in Settings > Display. */
+    static boolean isCrtScreenOffEnabled(Context context) {
+        return Settings.System.getIntForUser(context.getContentResolver(),
+                SCREEN_OFF_CRT, 0, UserHandle.USER_CURRENT) != 0;
+    }
+
+    /**
+     * Old CRT TV turning off: the picture collapses to a bright horizontal line, the line
+     * shrinks to a dot, and the dot fades out.
+     */
+    private void drawCrt(float level) {
+        final float t = 1f - level;
+        float scaleX = 1f;
+        float scaleY;
+        float exponent;
+        float opacity = 1f;
+        if (t < CRT_LINE_END) {
+            final float p = t / CRT_LINE_END;
+            scaleY = 1f - (1f - CRT_LINE_SCALE) * p * p;
+            exponent = 1f - 0.75f * p;
+        } else if (t < CRT_DOT_END) {
+            final float p = (t - CRT_LINE_END) / (CRT_DOT_END - CRT_LINE_END);
+            scaleY = CRT_LINE_SCALE;
+            scaleX = 1f - (1f - CRT_DOT_SCALE) * p * p;
+            exponent = 0.25f;
+        } else {
+            final float p = (t - CRT_DOT_END) / (1f - CRT_DOT_END);
+            scaleY = CRT_LINE_SCALE;
+            scaleX = CRT_DOT_SCALE;
+            exponent = 0.25f;
+            opacity = 1f - p;
+        }
+        if (mCrtSideways) {
+            // Collapse to a line that is horizontal for the user
+            final float swap = scaleX;
+            scaleX = scaleY;
+            scaleY = swap;
+        }
+        // At least 2px thick so the line stays visible
+        final float w = Math.max(2f, mDisplayWidth * scaleX);
+        final float h = Math.max(2f, mDisplayHeight * scaleY);
+        setQuad(mVertexBuffer, (mDisplayWidth - w) / 2f, (mDisplayHeight - h) / 2f, w, h);
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mGLBuffers[0]);
+        GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, mVertexBuffer.capacity() * 4,
+                mVertexBuffer);
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+        drawFaded(opacity, exponent);
     }
 
     private void drawFaded(float opacity, float gamma) {
