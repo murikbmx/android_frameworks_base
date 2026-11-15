@@ -1913,6 +1913,12 @@ class DesktopTasksController(
             .firstOrNull { !repository.isClosingTask(it) } ?: INVALID_TASK_ID
     }
 
+    /** Minimizes the running desktop task [taskId] as the task limit does. */
+    fun minimizeTask(taskId: Int) {
+        val task = shellTaskOrganizer.getRunningTaskInfo(taskId) ?: return
+        minimizeTask(task, MinimizeReason.TASK_LIMIT)
+    }
+
     fun minimizeTask(taskInfo: RunningTaskInfo, minimizeReason: MinimizeReason) {
         val wct = WindowContainerTransaction()
         val taskId = taskInfo.taskId
