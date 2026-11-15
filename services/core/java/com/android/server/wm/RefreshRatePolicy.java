@@ -19,7 +19,12 @@ package com.android.server.wm;
 import static android.hardware.display.DisplayManager.SWITCHING_TYPE_NONE;
 import static android.hardware.display.DisplayManager.SWITCHING_TYPE_RENDER_FRAME_RATE_ONLY;
 
+import android.content.ContentResolver;
+import android.database.ContentObserver;
 import android.hardware.display.DisplayManager;
+import android.os.UserHandle;
+import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.Display;
 import android.view.Display.Mode;
 import android.view.DisplayInfo;
@@ -57,11 +62,72 @@ class RefreshRatePolicy {
         }
     }
 
+    /** Per-app refresh rate chosen by the user, format "pkg:rate,pkg:rate". */
+    static final String APP_REFRESH_RATE_SETTING = "lineage_app_refresh_rate";
+
+    /** Shared cache of {@link #APP_REFRESH_RATE_SETTING}, guarded by the WM global lock. */
+    private static final class AppRefreshRateOverrides extends ContentObserver {
+        private static AppRefreshRateOverrides sInstance;
+
+        private final WindowManagerService mWmService;
+        private final HashMap<String, Float> mRates = new HashMap<>();
+
+        static synchronized AppRefreshRateOverrides getInstance(WindowManagerService wmService) {
+            if (sInstance == null) {
+                sInstance = new AppRefreshRateOverrides(wmService);
+            }
+            return sInstance;
+        }
+
+        private AppRefreshRateOverrides(WindowManagerService wmService) {
+            super(wmService.mH);
+            mWmService = wmService;
+            wmService.mContext.getContentResolver().registerContentObserver(
+                    Settings.System.getUriFor(APP_REFRESH_RATE_SETTING), false, this,
+                    UserHandle.USER_ALL);
+            // Callers may hold the WM lock, so read the setting off this call path.
+            wmService.mH.post(() -> onChange(false));
+        }
+
+        @Override
+        public void onChange(boolean selfChange) {
+            final ContentResolver cr = mWmService.mContext.getContentResolver();
+            final String value = Settings.System.getStringForUser(cr, APP_REFRESH_RATE_SETTING,
+                    UserHandle.USER_CURRENT);
+            final HashMap<String, Float> rates = new HashMap<>();
+            if (!TextUtils.isEmpty(value)) {
+                for (String entry : value.split(",")) {
+                    final int sep = entry.lastIndexOf(':');
+                    if (sep <= 0) {
+                        continue;
+                    }
+                    try {
+                        final float rate = Float.parseFloat(entry.substring(sep + 1).trim());
+                        if (rate > 0) {
+                            rates.put(entry.substring(0, sep).trim(), rate);
+                        }
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+            synchronized (mWmService.mGlobalLock) {
+                mRates.clear();
+                mRates.putAll(rates);
+                mWmService.requestTraversal();
+            }
+        }
+
+        Float get(String packageName) {
+            return packageName != null ? mRates.get(packageName) : null;
+        }
+    }
+
     private final DisplayInfo mDisplayInfo;
     private final Mode mLowRefreshRateMode;
     private final PackageRefreshRate mNonHighRefreshRatePackages = new PackageRefreshRate();
     private final HighRefreshRateDenylist mHighRefreshRateDenylist;
     private final WindowManagerService mWmService;
+    private final AppRefreshRateOverrides mAppRefreshRateOverrides;
     private float mMinSupportedRefreshRate;
     private float mMaxSupportedRefreshRate;
 
@@ -92,6 +158,28 @@ class RefreshRatePolicy {
         mLowRefreshRateMode = findLowRefreshRateMode(displayInfo);
         mHighRefreshRateDenylist = denylist;
         mWmService = wmService;
+        mAppRefreshRateOverrides = AppRefreshRateOverrides.getInstance(wmService);
+    }
+
+    /**
+     * Returns the refresh rate the user picked for the window's app, snapped to a rate the
+     * display supports, or 0 if there is none.
+     */
+    private float getAppRefreshRateOverride(WindowState w) {
+        // A PiP window is not the app in front, so the user's choice must not apply.
+        if (w.inPinnedWindowingMode()) {
+            return 0;
+        }
+        final Float rate = mAppRefreshRateOverrides.get(w.getOwningPackage());
+        if (rate == null) {
+            return 0;
+        }
+        for (float supported : mDisplayInfo.getDefaultRefreshRates()) {
+            if (Math.abs(supported - rate) < 1f) {
+                return supported;
+            }
+        }
+        return 0;
     }
 
     /**
@@ -265,7 +353,8 @@ class RefreshRatePolicy {
         // list, we return the low refresh rate as the preferred one.
         if (refreshRateSwitchingType != SWITCHING_TYPE_RENDER_FRAME_RATE_ONLY) {
             final String packageName = w.getOwningPackage();
-            if (mHighRefreshRateDenylist.isDenylisted(packageName)) {
+            if (mHighRefreshRateDenylist.isDenylisted(packageName)
+                    && getAppRefreshRateOverride(w) == 0) {
                 return w.mFrameRateVote.update(mLowRefreshRateMode.getRefreshRate(),
                         Surface.FRAME_RATE_COMPATIBILITY_EXACT,
                         SurfaceControl.FRAME_RATE_SELECTION_STRATEGY_OVERRIDE_CHILDREN);
@@ -280,6 +369,13 @@ class RefreshRatePolicy {
         // to run in default refresh rate.
         if (w.isAnimationRunningSelfOrParent() || w.isInsetsAnimationRunning()) {
             return 0;
+        }
+
+        // The user's per-app choice pins the render rate range to that rate. This is an app
+        // request vote, so battery saver and other higher priority limits still win.
+        final float appRefreshRate = getAppRefreshRateOverride(w);
+        if (appRefreshRate > 0) {
+            return appRefreshRate;
         }
 
         if (w.mAttrs.preferredMinDisplayRefreshRate > 0) {
@@ -303,6 +399,11 @@ class RefreshRatePolicy {
         // to run in default refresh rate.
         if (w.isAnimationRunningSelfOrParent() || w.isInsetsAnimationRunning()) {
             return 0;
+        }
+
+        final float appRefreshRate = getAppRefreshRateOverride(w);
+        if (appRefreshRate > 0) {
+            return appRefreshRate;
         }
 
         if (w.mAttrs.preferredMaxDisplayRefreshRate > 0) {
