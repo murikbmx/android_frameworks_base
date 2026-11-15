@@ -23,6 +23,7 @@ import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
 import com.android.systemui.CoreStartable
+import com.android.systemui.lineage.batteryring.BatteryRingController
 import com.android.systemui.lineage.sidebar.SidebarController
 import com.android.systemui.qs.tiles.CaffeineTile
 import com.android.systemui.qs.tiles.MediaPlayerTile
@@ -51,6 +52,11 @@ interface LineageModule {
     @IntoMap
     @ClassKey(SidebarController::class)
     fun bindSidebarController(sidebarController: SidebarController): CoreStartable
+
+    @Binds
+    @IntoMap
+    @ClassKey(BatteryRingController::class)
+    fun bindBatteryRingController(controller: BatteryRingController): CoreStartable
 
     /** Inject AmbientDisplayTile into tileMap in QSModule */
     @Binds
