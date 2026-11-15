@@ -115,6 +115,9 @@ class SidebarPanelView(
     private var picker: View? = null
 
     init {
+        // Hidden until the apps are loaded and the panel is positioned, to avoid a flash of an
+        // empty, unpositioned panel.
+        alpha = 0f
         setBackgroundColor(Color.argb(46, 0, 0, 0))
         isFocusable = true
         isFocusableInTouchMode = true
@@ -150,14 +153,23 @@ class SidebarPanelView(
     fun show(apps: List<SidebarApp>, centerY: Int) {
         handleCenterY = centerY
         setApps(apps)
-        alpha = 0f
         panel.translationX = -dp(100).toFloat()
-        animate().alpha(1f).setDuration(180).start()
-        panel.animate()
-            .translationX(0f)
-            .setInterpolator(DecelerateInterpolator(2.2f))
-            .setDuration(280)
-            .start()
+        // Start once the panel has been laid out at its final place.
+        viewTreeObserver.addOnPreDrawListener(
+            object : android.view.ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    viewTreeObserver.removeOnPreDrawListener(this)
+                    animate().alpha(1f).setDuration(180).start()
+                    panel.animate()
+                        .translationX(0f)
+                        .setInterpolator(DecelerateInterpolator(2.2f))
+                        .setDuration(280)
+                        .start()
+                    return true
+                }
+            }
+        )
+        invalidate()
     }
 
     private fun setApps(newApps: List<SidebarApp>) {

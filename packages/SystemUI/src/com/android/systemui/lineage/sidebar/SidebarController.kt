@@ -30,12 +30,20 @@ import android.window.WindowContainerTransaction
 import android.window.WindowOrganizer
 import com.android.systemui.CoreStartable
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.settings.UserTracker
+import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.statusbar.policy.KeyguardStateController
+import com.android.wm.shell.desktopmode.api.DesktopMode
+import dagger.Lazy
+import java.util.Optional
 import java.util.concurrent.Executor
 import javax.inject.Inject
+import kotlin.jvm.optionals.getOrNull
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Edge sidebar: a thin handle on the left edge opening a panel of app shortcuts that launch in
@@ -51,6 +59,9 @@ constructor(
     @Main private val mainHandler: Handler,
     @Main private val mainExecutor: Executor,
     @Background private val bgExecutor: Executor,
+    private val desktopMode: Optional<DesktopMode>,
+    private val shadeInteractor: Lazy<ShadeInteractor>,
+    @Application private val applicationScope: CoroutineScope,
 ) : CoreStartable {
 
     private val windowManager = context.getSystemService(WindowManager::class.java)!!
@@ -62,6 +73,7 @@ constructor(
     private val handleHeight = (104 * density).toInt()
 
     private var enabled = false
+    private var shadeExpanded = false
     private var handleView: SidebarHandleView? = null
     private var handleParams: LayoutParams? = null
     private var panelView: SidebarPanelView? = null
@@ -106,6 +118,14 @@ constructor(
         keyguardStateController.addCallback(keyguardCallback)
         userTracker.addCallback(userCallback, mainExecutor)
         context.registerComponentCallbacks(configCallbacks)
+        applicationScope.launch {
+            shadeInteractor.get().isAnyExpanded.collect { expanded ->
+                if (expanded != shadeExpanded) {
+                    shadeExpanded = expanded
+                    refresh()
+                }
+            }
+        }
         refresh()
     }
 
@@ -115,10 +135,15 @@ constructor(
     private fun refresh() {
         val wasEnabled = enabled
         enabled = SidebarSettings.isEnabled(resolver, userId)
-        if (enabled && !wasEnabled) ensureFreeformSupport()
+        if (enabled && !wasEnabled && isLargeScreen()) ensureFreeformSupport()
         val lockscreen = keyguardStateController.isShowing && !keyguardStateController.isOccluded
-        if (enabled && !lockscreen) showHandle() else hideAll()
+        // Out of the way while the shade or quick settings (and their editor) are pulled down
+        if (enabled && !lockscreen && !shadeExpanded) showHandle() else hideAll()
     }
+
+    /** Mini windows only make sense on tablets; on phones apps open fullscreen. */
+    private fun isLargeScreen(): Boolean =
+        context.resources.configuration.smallestScreenWidthDp >= LARGE_SCREEN_MIN_DP
 
     /** Freeform windows need the feature or the developer setting (read by the system at boot). */
     private fun ensureFreeformSupport() {
@@ -281,23 +306,38 @@ constructor(
             .getOrDefault(emptyList())
 
     /**
-     * Keeps at most [MAX_MINI_WINDOWS] mini windows: before opening a new one, the oldest floating
+     * Keeps at most [maxMiniWindows] mini windows: before opening a new one, the oldest floating
      * windows go back to fullscreen at the bottom of recents (minimized, not closed).
      */
+    /** Two mini windows fit side by side in portrait, three in landscape. */
+    private fun maxMiniWindows(): Int {
+        val screen = screenBounds()
+        return if (screen.width() > screen.height()) MAX_MINI_WINDOWS_LANDSCAPE
+        else MAX_MINI_WINDOWS_PORTRAIT
+    }
+
     private fun limitMiniWindows(launchingPackage: String) {
         runCatching {
                 val freeform =
                     ActivityTaskManager.getInstance()
                         .getTasks(MAX_TASKS_QUERY)
                         .filter {
-                            it.configuration.windowConfiguration.windowingMode ==
-                                WINDOWING_MODE_FREEFORM
+                            it.isVisible &&
+                                it.configuration.windowConfiguration.windowingMode ==
+                                    WINDOWING_MODE_FREEFORM
                         }
-                // Already open in a mini window: it is just brought to front
-                if (freeform.any { it.baseActivity?.packageName == launchingPackage }) return
+                // The launched window stays: the oldest of the others make room for it. Its
+                // own task may already be open, then it is just brought to front.
+                val others = freeform.filter { it.baseActivity?.packageName != launchingPackage }
                 // getTasks() is ordered from the most recent task
-                val toMinimize = freeform.drop(MAX_MINI_WINDOWS - 1)
+                val toMinimize = others.drop(maxMiniWindows() - 1)
                 if (toMinimize.isEmpty()) return
+                // In desktop windowing the older windows are minimized to the taskbar
+                val desktop = desktopMode.getOrNull()
+                if (desktop != null && desktop.isDisplayInDesktopMode(context.displayId)) {
+                    toMinimize.forEach { desktop.minimizeTask(it.taskId) }
+                    return
+                }
                 val wct = WindowContainerTransaction()
                 toMinimize.forEach {
                     wct.setWindowingMode(it.token, WINDOWING_MODE_FULLSCREEN)
@@ -317,11 +357,16 @@ constructor(
                     Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
                 )
         val options = ActivityOptions.makeBasic()
-        if (isFreeformSupported()) {
+        if (isLargeScreen() && isFreeformSupported()) {
             limitMiniWindows(component.packageName)
+            // Opening the first window restores the other windows of the desktop: check again
+            // once they are shown
+            mainHandler.postDelayed({ limitMiniWindows(component.packageName) }, RELIMIT_DELAY_MS)
             val screen = screenBounds()
-            val width = (screen.width() * 0.82f).toInt()
-            val height = (screen.height() * 0.55f).toInt()
+            // Portrait-like window in both orientations
+            val landscape = screen.width() > screen.height()
+            val width = (screen.width() * if (landscape) 0.42f else 0.82f).toInt()
+            val height = (screen.height() * if (landscape) 0.75f else 0.55f).toInt()
             val left = screen.left + (screen.width() - width) / 2
             val top = screen.top + (screen.height() - height) / 3
             options.setLaunchWindowingMode(WINDOWING_MODE_FREEFORM)
@@ -334,8 +379,11 @@ constructor(
     }
 
     private companion object {
-        private const val MAX_MINI_WINDOWS = 2
+        private const val MAX_MINI_WINDOWS_PORTRAIT = 2
+        private const val MAX_MINI_WINDOWS_LANDSCAPE = 3
+        private const val LARGE_SCREEN_MIN_DP = 600
         private const val MAX_TASKS_QUERY = 20
         const val TAG = "SidebarController"
+        private const val RELIMIT_DELAY_MS = 1000L
     }
 }
