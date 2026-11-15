@@ -408,6 +408,8 @@ constructor(
                         isDarkProvider = { IsAreaDark { dark } },
                         showPercent = viewModel.isBatteryPercentSettingEnabled,
                         showEstimate = showBatteryEstimate,
+                        // Keep the battery in the expanded shade header
+                        hideWithHiddenStyle = false,
                     )
                 }
             }

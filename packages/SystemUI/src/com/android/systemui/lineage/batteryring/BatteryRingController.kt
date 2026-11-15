@@ -325,7 +325,12 @@ constructor(
     }
 
     private fun wantsPersistent() =
-        plugged && keyguardVisible && isEnabled(KEY_LOCKSCREEN) && canShow()
+        plugged && canShow() && (alwaysMode() || (keyguardVisible && isEnabled(KEY_LOCKSCREEN)))
+
+    /** The status bar battery is hidden: the ring always shows the level instead. */
+    private fun alwaysMode() =
+        isEnabled(KEY_ENABLED) &&
+            Settings.Secure.getIntForUser(resolver, KEY_REPLACE_ICON, 0, UserHandle.USER_CURRENT) != 0
 
     private fun levelFraction() = if (level < 0) 0f else level / 100f
 
@@ -343,18 +348,23 @@ constructor(
             v.showStatic(if (charged) 1f else levelFraction(), AOD_ALPHA)
             return
         }
-        if (v.isStatic) v.hide(animate = false)
         if (!canShow()) {
             if (v.isActive) v.hide(animate = false)
             return
         }
-        if (wantsPersistent()) {
-            if (!v.isPersistent) {
-                applyStyle()
-                v.showPersistent(levelFraction(), fromEmpty = false, fast = fast, charged = charged)
+        when {
+            wantsPersistent() -> {
+                if (!v.isPersistent) {
+                    if (v.isStatic) v.hide(animate = false)
+                    applyStyle()
+                    v.showPersistent(levelFraction(), fromEmpty = false, fast = fast, charged = charged)
+                }
             }
-        } else if (v.isPersistent) {
-            v.hide()
+            alwaysMode() -> {
+                applyStyle()
+                v.showStatic(levelFraction(), 1f)
+            }
+            v.isPersistent || v.isStatic -> v.hide()
         }
     }
 
@@ -384,7 +394,7 @@ constructor(
         }
 
         val v = view ?: return
-        if (wantsAod() || v.isStatic) {
+        if (wantsAod() || (v.isStatic && !alwaysMode())) {
             update()
             return
         }
@@ -400,7 +410,7 @@ constructor(
             }
             !newPlugged && wasPlugged -> {
                 fullShown = false
-                if (v.isActive) v.hide()
+                if (alwaysMode()) update() else if (v.isActive) v.hide()
                 checkLow(oldLevel)
             }
             newCharged && !wasCharged && !fullShown -> {
@@ -430,6 +440,8 @@ constructor(
         if (!crossed) return
         applyStyle(warning = true)
         view?.pulseLow(levelFraction())
+        // Back to the still ring once the pulses are over
+        if (alwaysMode()) mainHandler.postDelayed({ update() }, LOW_PULSE_MS)
     }
 
     /** The level set on the battery saver schedule slider, or the low battery warning level. */
@@ -457,6 +469,7 @@ constructor(
         // Still leaving the always-on display: retried when dozing ends
         if (statusBarStateController.isDozing) return
         screenOnPending = false
+        if (alwaysMode()) return
         if (!plugged || v.isPersistent || !canShow() || !isEnabled(KEY_SCREEN_ON)) return
         val now = SystemClock.elapsedRealtime()
         if (now - lastScreenOnRing < SCREEN_ON_INTERVAL_MS) return
@@ -585,8 +598,11 @@ constructor(
                     gravity = Gravity.TOP or Gravity.LEFT
                     title = "LineageBatteryRing"
                     layoutInDisplayCutoutMode = LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                    // Left out of screenshots and screen recordings, like the cutout overlays
                     privateFlags =
-                        privateFlags or LayoutParams.SYSTEM_FLAG_SHOW_FOR_ALL_USERS
+                        privateFlags or
+                            LayoutParams.SYSTEM_FLAG_SHOW_FOR_ALL_USERS or
+                            LayoutParams.PRIVATE_FLAG_IS_ROUNDED_CORNERS_OVERLAY
                     setFitInsetsTypes(0)
                     setTrustedOverlay()
                 }
@@ -611,8 +627,17 @@ constructor(
         const val KEY_LOCKSCREEN = "lineage_battery_ring_lockscreen"
         const val KEY_AOD = "lineage_battery_ring_aod"
         const val KEY_COLOR = "lineage_battery_ring_color"
+        const val KEY_REPLACE_ICON = "lineage_battery_ring_replace_icon"
         private val KEYS =
-            listOf(KEY_ENABLED, KEY_LOW, KEY_SCREEN_ON, KEY_LOCKSCREEN, KEY_AOD, KEY_COLOR)
+            listOf(
+                KEY_ENABLED,
+                KEY_LOW,
+                KEY_SCREEN_ON,
+                KEY_LOCKSCREEN,
+                KEY_AOD,
+                KEY_COLOR,
+                KEY_REPLACE_ICON,
+            )
 
         // Values of KEY_COLOR
         private const val COLOR_WALLPAPER = 0
@@ -631,6 +656,8 @@ constructor(
         private const val GREEN_ON_LIGHT = 0xFF1E8E4E.toInt()
 
         private const val AOD_ALPHA = 0.55f
+        private const val LOW_PULSE_MS = 3100L
+
 
         private const val RING_GAP_DP = 2.5f
         private const val CRITICAL_LEVEL = 5
