@@ -55,6 +55,12 @@ interface DragAndDropState {
 
     fun onTargeting(target: Int, insertAfter: Boolean)
 
+    /**
+     * Targets the second row of the music player block below the cell at [target], at grid
+     * [column]. Returns true if the target was handled.
+     */
+    fun onTargetingMediaRow(target: Int, column: Int): Boolean = false
+
     fun onMoved(offset: Offset)
 
     fun movedOutOfBounds()
@@ -146,7 +152,20 @@ fun Modifier.dragAndDropTileList(
                         }
 
                     targetItem?.let {
-                        dragAndDropState.onTargeting(it.index, insertAfter(it, relativeDragOffset))
+                        // The cells next to the music player are two rows tall: their lower half
+                        // previews the second row of the player block
+                        val lowerHalf = relativeDragOffset.y > it.offset.y + it.size.height / 2f
+                        val column =
+                            it.column +
+                                ((relativeDragOffset.x - it.offset.x) * it.span / it.size.width)
+                                    .toInt()
+                                    .coerceIn(0, it.span - 1)
+                        if (!lowerHalf || !dragAndDropState.onTargetingMediaRow(it.index, column)) {
+                            dragAndDropState.onTargeting(
+                                it.index,
+                                insertAfter(it, relativeDragOffset),
+                            )
+                        }
                     }
                 }
 

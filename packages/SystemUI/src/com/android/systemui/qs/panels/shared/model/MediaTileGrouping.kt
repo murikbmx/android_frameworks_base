@@ -41,16 +41,22 @@ sealed interface QSGridItem<T> {
     }
 
     /**
-     * The music player spanning [playerColumns] x [rows], with [side] icon tiles filling the
-     * remaining [sideColumns] columns of those rows (row by row).
+     * The music player spanning [playerColumns] x [rows], with the tiles of [sideRows] filling the
+     * remaining [sideColumns] columns of those rows: icon tiles, and large tiles when they fit.
      */
     data class MediaBlock<T>(
         val media: T,
         val playerColumns: Int,
         val sideColumns: Int,
         override val rows: Int,
-        val side: List<T>,
+        val sideRows: List<List<SizedTile<T>>>,
+        /** The player is on the end side, the side tiles before it. */
+        val playerAtEnd: Boolean = false,
     ) : QSGridItem<T> {
+        /** The tiles next to the player, row by row. */
+        val side: List<T>
+            get() = sideRows.flatten().map { it.tile }
+
         override val tiles: List<T>
             get() = listOf(media) + side
     }
@@ -72,7 +78,6 @@ fun <T> groupWithMediaTile(
 
     val playerColumns = size.columns.coerceAtMost(columns)
     val sideColumns = columns - playerColumns
-    val sideCount = sideColumns * size.rows
 
     val result = ArrayList<QSGridItem<T>>(tiles.size)
     val row = TileRow<T>(columns)
@@ -85,6 +90,31 @@ fun <T> groupWithMediaTile(
     }
 
     var rest = tiles.subList(mediaIndex + 1, tiles.size).filterNot { isMedia(it.tile) }
+    // Tiles right before the player that exactly fill the free columns of its row: the player
+    // goes to the end, these tiles before it (the start edge of the player was moved)
+    if (
+        sideColumns > 0 &&
+            row.tiles.isNotEmpty() &&
+            row.tiles.sumOf { it.width } == sideColumns
+    ) {
+        val before = row.tiles.toList()
+        repeat(before.size) { result.removeAt(result.size - 1) }
+        val second = fillSideRows(rest, sideColumns, size.rows - 1)
+        val sideRows = listOf(before) + second
+        result.add(
+            QSGridItem.MediaBlock(
+                media = tiles[mediaIndex].tile,
+                playerColumns = playerColumns,
+                sideColumns = sideColumns,
+                rows = size.rows,
+                sideRows = sideRows,
+                playerAtEnd = true,
+            )
+        )
+        val side = second.flatten()
+        rest.filterNot { side.contains(it) }.forEach { result.add(QSGridItem.Single(it)) }
+        return result
+    }
     // The block always starts a new row: fill the gap left in the current row first.
     if (row.tiles.isNotEmpty() && !row.isFull()) {
         val fill = mutableListOf<SizedTile<T>>()
@@ -95,17 +125,41 @@ fun <T> groupWithMediaTile(
         fill.forEach { result.add(QSGridItem.Single(it)) }
         rest = rest.filterNot { fill.contains(it) }
     }
-    val side = rest.filter { it.width == 1 }.take(sideCount)
+    val sideRows = fillSideRows(rest, sideColumns, size.rows)
+    val side = sideRows.flatten()
     result.add(
         QSGridItem.MediaBlock(
             media = tiles[mediaIndex].tile,
             playerColumns = playerColumns,
             sideColumns = sideColumns,
             rows = size.rows,
-            side = side.map { it.tile },
+            sideRows = sideRows,
         )
     )
     rest.filterNot { side.contains(it) }.forEach { result.add(QSGridItem.Single(it)) }
+    return result
+}
+
+/**
+ * Fills [rows] rows of [columns] cells with the [tiles] that fit, in order: each tile goes to the
+ * first row with enough free cells, tiles wider than [columns] are left out.
+ */
+private fun <T> fillSideRows(
+    tiles: List<SizedTile<T>>,
+    columns: Int,
+    rows: Int,
+): List<List<SizedTile<T>>> {
+    if (columns <= 0) return emptyList()
+    val result = List(rows) { mutableListOf<SizedTile<T>>() }
+    val free = IntArray(rows) { columns }
+    for (tile in tiles) {
+        if (free.all { it == 0 }) break
+        if (tile.width > columns) continue
+        val row = free.indexOfFirst { it >= tile.width }
+        if (row < 0) continue
+        result[row].add(tile)
+        free[row] -= tile.width
+    }
     return result
 }
 

@@ -18,6 +18,7 @@
 
 package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
+import androidx.compose.foundation.layout.offset
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColor
@@ -46,7 +47,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement.spacedBy
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -98,6 +101,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -151,6 +155,7 @@ import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -167,10 +172,12 @@ import com.android.systemui.common.ui.compose.load
 import com.android.systemui.common.ui.icons.Undo
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.qs.panels.domain.interactor.MediaTileInteractor
+import com.android.systemui.qs.panels.shared.model.MediaTileSize
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
 import com.android.systemui.qs.panels.ui.compose.DragAndDropState
 import com.android.systemui.qs.panels.ui.compose.DragType
 import com.android.systemui.qs.panels.ui.compose.EditTileListState
+import com.android.systemui.qs.panels.ui.compose.MediaGhost
 import com.android.systemui.qs.panels.ui.compose.EditTileListState.Companion.INVALID_INDEX
 import com.android.systemui.qs.panels.ui.compose.dragAndDropRemoveZone
 import com.android.systemui.qs.panels.ui.compose.dragAndDropTileList
@@ -610,9 +617,16 @@ private fun CurrentTilesGrid(
 ) {
     val currentListState by rememberUpdatedState(listState)
     val totalRows = listState.tiles.lastOrNull()?.row ?: 0
+    // The music player row is two tiles tall
+    val mediaRows = if (listState.tiles.any { it.isMediaCell() }) 1 else 0
     val totalHeight by
         animateDpAsState(
-            gridHeight(totalRows + 1, TileHeight, TileArrangementPadding, CurrentTilesGridPadding),
+            gridHeight(
+                totalRows + 1 + mediaRows,
+                TileHeight,
+                TileArrangementPadding,
+                CurrentTilesGridPadding,
+            ),
             label = "QSEditCurrentTilesGridHeight",
         )
     val gridState = rememberLazyGridState()
@@ -865,25 +879,40 @@ fun LazyGridScope.EditTiles(
     onMediaResize: (width: Int, final: Boolean) -> Unit = { _, _ -> },
     onResize: (operation: ResizeOperation) -> Unit,
 ) {
+    val ghosts = listState.mediaRowGhosts()
+    val movingSpec = listState.draggedCell?.tile?.tileSpec
     itemsIndexed(
         items = listState.tiles,
         key = { index, item -> item.key(index) },
         span = { _, item -> item.span },
         contentType = { _, _ -> TileType },
     ) { index, cell ->
+        // Cells next to the two rows tall music player show, below them, the tiles that fill the
+        // second row of the player block in quick settings
+        val ghostColumns = ghosts?.columnsOf(index)
+        val below: (@Composable () -> Unit)? =
+            ghostColumns?.let { columns ->
+                {
+                    GhostTiles(ghosts.bottom, columns, movingSpec, listState) {
+                        selectionState.select(it)
+                    }
+                }
+            }
         when (cell) {
             is TileGridCell ->
                 if (listState.isMoving(cell.tile.tileSpec)) {
                     // If the tile is being moved, replace it with a visible spacer
-                    SpacerGridCell(
-                        Modifier.background(
-                            color =
-                                MaterialTheme.colorScheme.secondary.copy(
-                                    alpha = EditModeTileDefaults.PLACEHOLDER_ALPHA
-                                ),
-                            shape = RoundedCornerShape(InactiveTileCornerRadius),
+                    WithGhostsBelow(below) {
+                        SpacerGridCell(
+                            Modifier.background(
+                                color =
+                                    MaterialTheme.colorScheme.secondary.copy(
+                                        alpha = EditModeTileDefaults.PLACEHOLDER_ALPHA
+                                    ),
+                                shape = RoundedCornerShape(InactiveTileCornerRadius),
+                            )
                         )
-                    )
+                    }
                 } else {
                     TileGridCell(
                         cell = cell,
@@ -896,15 +925,132 @@ fun LazyGridScope.EditTiles(
                         onRemoveTile = onRemoveTile,
                         coroutineScope = coroutineScope,
                         largeTilesSpan = listState.largeTilesSpan,
+                        below = below,
                     )
                 }
             is SpacerGridCell ->
-                SpacerGridCell(
-                    Modifier.pointerInput(Unit) {
-                        detectTapGestures(onTap = { selectionState.onTap(index) })
+                WithGhostsBelow(below) {
+                    Box {
+                        SpacerGridCell(
+                            Modifier.pointerInput(Unit) {
+                                detectTapGestures(onTap = { selectionState.onTap(index) })
+                            }
+                        )
+                        // A free cell next to the player is filled in quick settings too
+                        ghostColumns?.let { columns ->
+                            GhostTiles(ghosts.top, columns, movingSpec, listState) {
+                                selectionState.select(it)
+                            }
+                        }
                     }
-                )
+                }
         }
+    }
+}
+
+/** The local [MediaTileInteractor] used to preview the music player tile in the edit mode. */
+val LocalEditMediaTileInteractor = staticCompositionLocalOf<MediaTileInteractor?> { null }
+
+private fun GridCell.isMediaCell() =
+    this is TileGridCell && tile.tileSpec == MediaTileInteractor.SPEC
+
+@Composable
+private fun WithGhostsBelow(
+    below: (@Composable () -> Unit)?,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    if (below == null) {
+        Box(modifier) { content() }
+    } else {
+        Column(modifier, verticalArrangement = spacedBy(TileArrangementPadding)) {
+            content()
+            below()
+        }
+    }
+}
+
+/**
+ * Dimmed, non interactive previews of the [ghosts] starting in the grid [columns] of this cell. A
+ * large tile may overflow into the next cell, whose own cells it covers.
+ */
+@Composable
+private fun GhostTiles(
+    ghosts: List<MediaGhost>,
+    columns: IntRange,
+    movingSpec: TileSpec?,
+    dragAndDropState: DragAndDropState,
+    onPick: (TileSpec) -> Unit,
+) {
+    val colors = EditModeTileDefaults.editTileColors()
+    val background = colors.background
+    val iconColor = colors.icon
+    val labelColor = colors.label
+    val placeholder =
+        MaterialTheme.colorScheme.secondary.copy(alpha = EditModeTileDefaults.PLACEHOLDER_ALPHA)
+    val cornerRadius = InactiveTileCornerRadius
+    val padding = TileArrangementPadding
+    BoxWithConstraints(Modifier.fillMaxWidth().height(TileHeight)) {
+        val count = columns.last - columns.first + 1
+        val cell = (maxWidth - padding * (count - 1)) / count
+        ghosts
+            .filter { it.column in columns }
+            .forEach { ghost ->
+                val moving = ghost.tile.tileSpec == movingSpec
+                val dragModifier =
+                    if (moving) {
+                        Modifier
+                    } else {
+                        Modifier.dragAndDropTileSource(
+                            SizedTileImpl(ghost.tile, ghost.width),
+                            dragAndDropState,
+                            DragType.Move,
+                        ) {
+                            onPick(ghost.tile.tileSpec)
+                        }
+                    }
+                val width = cell * ghost.width + padding * (ghost.width - 1)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement =
+                        if (ghost.width > 1) spacedBy(6.dp) else Arrangement.Center,
+                    modifier =
+                        Modifier.offset(x = (cell + padding) * (ghost.column - columns.first))
+                            .layout { measurable, constraints ->
+                                // Draw past the cell bounds when the tile is wider than the cell
+                                val w = width.roundToPx()
+                                val h = constraints.maxHeight
+                                val placeable = measurable.measure(Constraints.fixed(w, h))
+                                layout(minOf(w, constraints.maxWidth), h) {
+                                    placeable.place(0, 0)
+                                }
+                            }
+                            // A long press on the preview drags the tile itself
+                            .then(dragModifier)
+                            .graphicsLayer { alpha = if (moving) 1f else 0.4f }
+                            .clip(RoundedCornerShape(cornerRadius))
+                            .background(if (moving) placeholder else background)
+                            .thenIf(ghost.width > 1) { Modifier.padding(start = 16.dp) },
+                ) {
+                    if (!moving) {
+                        SmallTileContent(
+                            iconProvider = { ghost.tile.icon },
+                            color = iconColor,
+                            animateToEnd = true,
+                            size = { CommonTileDefaults.SmallTileIconSize },
+                        )
+                        if (ghost.width > 1) {
+                            Text(
+                                text = ghost.tile.label.text,
+                                color = labelColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                    }
+                }
+            }
     }
 }
 
@@ -936,8 +1082,10 @@ private fun LazyGridItemScope.TileGridCell(
     coroutineScope: CoroutineScope,
     largeTilesSpan: Int,
     modifier: Modifier = Modifier,
+    below: (@Composable () -> Unit)? = null,
 ) {
     val isMediaTile = cell.tile.tileSpec == MediaTileInteractor.SPEC
+    val mediaInteractor = LocalEditMediaTileInteractor.current
     val stateDescription = stringResource(id = R.string.accessibility_qs_edit_position, index + 1)
     val tileState by rememberTileState(cell.tile, selectionState)
     val resizingState = rememberResizingState(cell.tile.tileSpec, cell.isIcon)
@@ -1029,104 +1177,123 @@ private fun LazyGridItemScope.TileGridCell(
         selectionState.unSelect()
         onRemoveTile(cell.tile.tileSpec)
     }
-    InteractiveTileContainer(
-        tileState = tileState,
-        resizingState = resizingState,
-        modifier =
-            modifier
-                .height(TileHeight)
-                .fillMaxWidth()
-                .animateItem(placementSpec = placementSpec)
-                .tileTestTag(cell.isIcon),
-        onClick = {
-            if (tileState == TileState.Removable) {
-                removeTile()
-            } else if (tileState == TileState.Selected) {
-                coroutineScope.launch {
-                    if (isMediaTile) resizingState.cycleMediaWidth()
-                    else resizingState.toggleCurrentValue()
-                }
-            }
-        },
-        contentDescription = decorationClickLabel,
-    ) {
-        // Rapidly composing elements with the draggable modifier can cause visual jank. This
-        // usually happens when resizing a tile multiple times. We can fix this by applying the
-        // draggable modifier after the first frame
-        var isSelectable by remember { mutableStateOf(false) }
-        LaunchedEffect(dragAndDropState.dragInProgress) {
-            isSelectable = !dragAndDropState.dragInProgress
-        }
-        val selectableModifier = Modifier.selectableTile(cell.tile.tileSpec, selectionState)
-        val draggableModifier =
-            Modifier.dragAndDropTileSource(
-                SizedTileImpl(cell.tile, cell.width),
-                dragAndDropState,
-                DragType.Move,
-            ) {
-                selectionState.select(cell.tile.tileSpec)
-            }
-
-        val toggleSelectionLabel = stringResource(R.string.accessibility_qs_edit_toggle_selection)
-        val placeTileLabel = stringResource(R.string.accessibility_qs_edit_place_tile_action)
-        val containerAlpha by animateFloatAsState(if (tileState == TileState.GreyedOut) .4f else 1f)
-        Box(
-            Modifier.fillMaxSize()
-                .clearAndSetSemantics {
-                    this.stateDescription = stateDescription
-                    contentDescription = cell.tile.label.text
-
-                    if (isSelectable) {
-                        val actions =
-                            mutableListOf(
-                                CustomAccessibilityAction(togglePlacementModeLabel) {
-                                    selectionState.togglePlacementMode(cell.tile.tileSpec)
-                                    true
-                                }
-                            )
-
-                        if (selectionState.placementEnabled) {
-                            actions.add(
-                                CustomAccessibilityAction(placeTileLabel) {
-                                    selectionState.placeTileAt(cell.tile.tileSpec)
-                                    true
-                                }
-                            )
+    WithGhostsBelow(below, modifier.animateItem(placementSpec = placementSpec)) {
+        InteractiveTileContainer(
+            tileState = tileState,
+            resizingState = resizingState,
+            modifier =
+                Modifier.height(
+                        if (isMediaTile && mediaInteractor != null) {
+                            TileHeight * 2 + TileArrangementPadding
                         } else {
-                            // Don't allow for resizing during placement mode
-                            actions.add(
-                                CustomAccessibilityAction(toggleSizeLabel) {
-                                    onResize(FinalResizeOperation(cell.tile.tileSpec, !cell.isIcon))
-                                    true
-                                }
-                            )
-                            actions.add(
-                                CustomAccessibilityAction(toggleSelectionLabel) {
-                                    selectionState.toggleSelection(cell.tile.tileSpec)
-                                    true
-                                }
-                            )
+                            TileHeight
                         }
-
-                        customActions = actions
+                    )
+                    .fillMaxWidth()
+                    .tileTestTag(cell.isIcon),
+            onClick = {
+                if (tileState == TileState.Removable) {
+                    removeTile()
+                } else if (tileState == TileState.Selected) {
+                    coroutineScope.launch {
+                        if (isMediaTile) resizingState.cycleMediaWidth()
+                        else resizingState.toggleCurrentValue()
                     }
                 }
-                .borderOnFocus(
-                    MaterialTheme.colorScheme.secondary,
-                    CornerSize(InactiveTileCornerRadius),
-                )
-                .thenIf(isSelectable) { draggableModifier }
-                .tileBackground(
-                    cornerRadius = InactiveTileCornerRadius,
-                    alpha = { containerAlpha },
-                    color = { colors.background },
-                )
-                .keyboardShortcuts(cell.tile.tileSpec, selectionState) {
-                    onResize(FinalResizeOperation(cell.tile.tileSpec, !cell.isIcon))
-                }
-                .thenIf(isSelectable) { selectableModifier }
+            },
+            contentDescription = decorationClickLabel,
         ) {
-            EditTile(tile = cell.tile, state = resizingState, progress = resizingState::progress)
+            // Rapidly composing elements with the draggable modifier can cause visual jank. This
+            // usually happens when resizing a tile multiple times. We can fix this by applying the
+            // draggable modifier after the first frame
+            var isSelectable by remember { mutableStateOf(false) }
+            LaunchedEffect(dragAndDropState.dragInProgress) {
+                isSelectable = !dragAndDropState.dragInProgress
+            }
+            val selectableModifier = Modifier.selectableTile(cell.tile.tileSpec, selectionState)
+            val draggableModifier =
+                Modifier.dragAndDropTileSource(
+                    SizedTileImpl(cell.tile, cell.width),
+                    dragAndDropState,
+                    DragType.Move,
+                ) {
+                    selectionState.select(cell.tile.tileSpec)
+                }
+
+            val toggleSelectionLabel = stringResource(R.string.accessibility_qs_edit_toggle_selection)
+            val placeTileLabel = stringResource(R.string.accessibility_qs_edit_place_tile_action)
+            val containerAlpha by animateFloatAsState(if (tileState == TileState.GreyedOut) .4f else 1f)
+            Box(
+                Modifier.fillMaxSize()
+                    .clearAndSetSemantics {
+                        this.stateDescription = stateDescription
+                        contentDescription = cell.tile.label.text
+
+                        if (isSelectable) {
+                            val actions =
+                                mutableListOf(
+                                    CustomAccessibilityAction(togglePlacementModeLabel) {
+                                        selectionState.togglePlacementMode(cell.tile.tileSpec)
+                                        true
+                                    }
+                                )
+
+                            if (selectionState.placementEnabled) {
+                                actions.add(
+                                    CustomAccessibilityAction(placeTileLabel) {
+                                        selectionState.placeTileAt(cell.tile.tileSpec)
+                                        true
+                                    }
+                                )
+                            } else {
+                                // Don't allow for resizing during placement mode
+                                actions.add(
+                                    CustomAccessibilityAction(toggleSizeLabel) {
+                                        onResize(FinalResizeOperation(cell.tile.tileSpec, !cell.isIcon))
+                                        true
+                                    }
+                                )
+                                actions.add(
+                                    CustomAccessibilityAction(toggleSelectionLabel) {
+                                        selectionState.toggleSelection(cell.tile.tileSpec)
+                                        true
+                                    }
+                                )
+                            }
+
+                            customActions = actions
+                        }
+                    }
+                    .borderOnFocus(
+                        MaterialTheme.colorScheme.secondary,
+                        CornerSize(InactiveTileCornerRadius),
+                    )
+                    .thenIf(isSelectable) { draggableModifier }
+                    .tileBackground(
+                        cornerRadius = InactiveTileCornerRadius,
+                        alpha = { containerAlpha },
+                        color = { colors.background },
+                    )
+                    .keyboardShortcuts(cell.tile.tileSpec, selectionState) {
+                        onResize(FinalResizeOperation(cell.tile.tileSpec, !cell.isIcon))
+                    }
+                    .thenIf(isSelectable) { selectableModifier }
+            ) {
+                if (isMediaTile && mediaInteractor != null) {
+                    MediaPlayerTileContent(
+                        interactor = mediaInteractor,
+                        size = MediaTileSize.fromColumns(cell.width),
+                        modifier = Modifier.fillMaxSize(),
+                        interactive = false,
+                    )
+                } else {
+                    EditTile(
+                        tile = cell.tile,
+                        state = resizingState,
+                        progress = resizingState::progress,
+                    )
+                }
+            }
         }
     }
 }

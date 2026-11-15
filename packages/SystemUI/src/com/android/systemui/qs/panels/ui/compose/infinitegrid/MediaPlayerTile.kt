@@ -184,6 +184,7 @@ fun MediaPlayerTileContent(
     interactor: MediaTileInteractor,
     size: MediaTileSize,
     modifier: Modifier = Modifier,
+    interactive: Boolean = true,
 ) {
     val context = LocalContext.current
     val data by interactor.media.collectAsStateWithLifecycle()
@@ -212,7 +213,13 @@ fun MediaPlayerTileContent(
         modifier
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .combinedClickable(onClick = { data?.let(interactor::openPlayer) })
+            .then(
+                if (interactive) {
+                    Modifier.combinedClickable(onClick = { data?.let(interactor::openPlayer) })
+                } else {
+                    Modifier
+                }
+            )
     ) {
         val bitmap = artwork.bitmap
         if (bitmap != null) {
@@ -294,6 +301,7 @@ fun MediaPlayerTileContent(
                     background = sideButtonColor,
                     tint = contentColor,
                     enabled = data != null,
+                    clickable = interactive,
                 ) {
                     data?.let(interactor::previous)
                 }
@@ -312,6 +320,7 @@ fun MediaPlayerTileContent(
                     background = accent,
                     tint = onAccent,
                     enabled = data != null,
+                    clickable = interactive,
                 ) {
                     data?.let(interactor::playPause)
                 }
@@ -325,6 +334,7 @@ fun MediaPlayerTileContent(
                     background = sideButtonColor,
                     tint = contentColor,
                     enabled = data != null,
+                    clickable = interactive,
                 ) {
                     data?.let(interactor::next)
                 }
@@ -381,6 +391,7 @@ private fun PlayerButton(
     background: Color,
     tint: Color,
     enabled: Boolean,
+    clickable: Boolean,
     onClick: () -> Unit,
 ) {
     Box(
@@ -390,7 +401,10 @@ private fun PlayerButton(
                 .clip(shape)
                 .background(background)
                 .semantics { contentDescription = description }
-                .combinedClickable(enabled = enabled, onClick = onClick),
+                .then(
+                    if (clickable) Modifier.combinedClickable(enabled = enabled, onClick = onClick)
+                    else Modifier
+                ),
     ) {
         Icon(
             imageVector = icon,

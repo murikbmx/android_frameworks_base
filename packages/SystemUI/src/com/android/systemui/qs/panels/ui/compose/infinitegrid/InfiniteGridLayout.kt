@@ -17,6 +17,7 @@
 package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -181,39 +182,59 @@ constructor(
                         val cell = (maxWidth - columnSpacing * (columns - 1)) / columns
                         val blockHeight = tileHeight * item.rows + rowSpacing * (item.rows - 1)
                         Row(horizontalArrangement = Arrangement.spacedBy(columnSpacing)) {
-                            Element(item.media.spec.toElementKey(), Modifier) {
-                                MediaPlayerTileContent(
-                                    interactor = mediaTileInteractor,
-                                    size = mediaSize,
-                                    modifier =
-                                        Modifier.size(
-                                            width =
-                                                cell * item.playerColumns +
-                                                    columnSpacing * (item.playerColumns - 1),
-                                            height = blockHeight,
-                                        ),
-                                )
+                            val player: @Composable () -> Unit = {
+                                Element(item.media.spec.toElementKey(), Modifier) {
+                                    MediaPlayerTileContent(
+                                        interactor = mediaTileInteractor,
+                                        size = mediaSize,
+                                        modifier =
+                                            Modifier.size(
+                                                width =
+                                                    cell * item.playerColumns +
+                                                        columnSpacing * (item.playerColumns - 1),
+                                                height = blockHeight,
+                                            ),
+                                    )
+                                }
                             }
-                            if (item.sideColumns > 0) {
-                                Column(verticalArrangement = Arrangement.spacedBy(rowSpacing)) {
-                                    item.side.chunked(item.sideColumns).forEach { rowTiles ->
-                                        Row(
-                                            horizontalArrangement =
-                                                Arrangement.spacedBy(columnSpacing)
-                                        ) {
-                                            rowTiles.forEachIndexed { i, tile ->
-                                                Box(Modifier.width(cell)) {
-                                                    GridTile(
-                                                        SizedTileImpl(tile, 1),
-                                                        column = item.playerColumns + i,
-                                                        first = false,
-                                                        last = i == rowTiles.size - 1,
-                                                    )
+                            val sideTiles: @Composable () -> Unit = {
+                                if (item.sideColumns > 0) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(rowSpacing)) {
+                                        item.sideRows.forEach { rowTiles ->
+                                            Row(
+                                                horizontalArrangement =
+                                                    Arrangement.spacedBy(columnSpacing)
+                                            ) {
+                                                var column = if (item.playerAtEnd) 0 else item.playerColumns
+                                                rowTiles.forEachIndexed { i, sized ->
+                                                    val tileColumn = column
+                                                    column += sized.width
+                                                    Box(
+                                                        Modifier.width(
+                                                            cell * sized.width +
+                                                                columnSpacing * (sized.width - 1)
+                                                        )
+                                                    ) {
+                                                        GridTile(
+                                                            sized,
+                                                            column = tileColumn,
+                                                            first = false,
+                                                            last = i == rowTiles.size - 1,
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
+                            }
+                            // The player is on the end side when its start edge was moved
+                            if (item.playerAtEnd) {
+                                sideTiles()
+                                player()
+                            } else {
+                                player()
+                                sideTiles()
                             }
                         }
                     }
@@ -286,41 +307,43 @@ constructor(
             }
         LaunchedEffect(currentTiles, largeTiles) { listState.updateTiles(currentTiles, largeTiles) }
 
-        DefaultEditTileGrid(
-            listState = listState,
-            allTiles = tiles,
-            modifier = modifier,
-            scrollState = scrollState,
-            snapshotViewModel = snapshotViewModel,
-            onStopEditing = onStopEditing,
-            topBarActions = actions,
-        ) { action ->
-            // Opening the dialog doesn't require a snapshot
-            if (action != EditAction.ResetGrid) {
-                snapshotViewModel.takeSnapshot(currentTiles.map { it.tileSpec }, largeTiles)
-            }
+        CompositionLocalProvider(LocalEditMediaTileInteractor provides mediaTileInteractor) {
+            DefaultEditTileGrid(
+                listState = listState,
+                allTiles = tiles,
+                modifier = modifier,
+                scrollState = scrollState,
+                snapshotViewModel = snapshotViewModel,
+                onStopEditing = onStopEditing,
+                topBarActions = actions,
+            ) { action ->
+                // Opening the dialog doesn't require a snapshot
+                if (action != EditAction.ResetGrid) {
+                    snapshotViewModel.takeSnapshot(currentTiles.map { it.tileSpec }, largeTiles)
+                }
 
-            when (action) {
-                is EditAction.AddTile -> {
-                    onAddTile(action.tileSpec, listState.tileSpecs().size)
-                }
-                is EditAction.InsertTile -> {
-                    onAddTile(action.tileSpec, action.position)
-                }
-                is EditAction.RemoveTile -> {
-                    onRemoveTile(action.tileSpec)
-                }
-                EditAction.ResetGrid -> {
-                    dialogDelegate.showDialog()
-                }
-                is EditAction.ResizeTile -> {
-                    iconTilesViewModel.resize(action.tileSpec, action.toIcon)
-                }
-                is EditAction.ResizeMediaTile -> {
-                    mediaTileInteractor.setSize(MediaTileSize.fromColumns(action.width))
-                }
-                is EditAction.SetTiles -> {
-                    onSetTiles(action.tileSpecs)
+                when (action) {
+                    is EditAction.AddTile -> {
+                        onAddTile(action.tileSpec, listState.tileSpecs().size)
+                    }
+                    is EditAction.InsertTile -> {
+                        onAddTile(action.tileSpec, action.position)
+                    }
+                    is EditAction.RemoveTile -> {
+                        onRemoveTile(action.tileSpec)
+                    }
+                    EditAction.ResetGrid -> {
+                        dialogDelegate.showDialog()
+                    }
+                    is EditAction.ResizeTile -> {
+                        iconTilesViewModel.resize(action.tileSpec, action.toIcon)
+                    }
+                    is EditAction.ResizeMediaTile -> {
+                        mediaTileInteractor.setSize(MediaTileSize.fromColumns(action.width))
+                    }
+                    is EditAction.SetTiles -> {
+                        onSetTiles(action.tileSpecs)
+                    }
                 }
             }
         }
