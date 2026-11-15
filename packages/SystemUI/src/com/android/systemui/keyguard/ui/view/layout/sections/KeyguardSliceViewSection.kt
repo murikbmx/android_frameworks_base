@@ -32,6 +32,7 @@ import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.keyguard.ui.binder.KeyguardSliceViewBinder
 import com.android.systemui.keyguard.ui.viewmodel.AodBurnInViewModel
+import com.android.systemui.keyguard.ui.viewmodel.KeyguardClockViewModel
 import com.android.systemui.keyguard.ui.viewmodel.KeyguardSmartspaceViewModel
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
@@ -60,6 +61,7 @@ constructor(
     val powerInteractor: PowerInteractor,
     val aodBurnInViewModel: AodBurnInViewModel,
     val keyguardSmartspaceViewModel: KeyguardSmartspaceViewModel,
+    val keyguardClockViewModel: KeyguardClockViewModel,
 ) : KeyguardSection() {
     private lateinit var sliceView: KeyguardSliceView
     private var disposableHandle: DisposableHandle? = null
@@ -135,7 +137,58 @@ constructor(
                 *intArrayOf(R.id.keyguard_slice_view),
             )
         }
+        applyGlassClockConstraints(constraintSet)
+    }
+
+    /**
+     * The glass clock: the date first and the digits right under it, centered and high on screen
+     * without notifications, wide at the start with them.
+     */
+    private fun applyGlassClockConstraints(constraintSet: ConstraintSet) {
+        if (keyguardClockViewModel.currentClock.value?.config?.id != GLASS_CLOCK_ID) return
+        val res = context.resources
+        val dp = res.displayMetrics.density
+        val startMargin = KeyguardSmartspaceViewModel.getDateWeatherStartMargin(context)
+        val date = R.id.keyguard_slice_view
+        val small = ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL
+        val large = ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE
+        val parent = ConstraintSet.PARENT_ID
+        constraintSet.apply {
+            clear(date)
+            constrainHeight(date, ConstraintSet.WRAP_CONTENT)
+            // Below the status bar, where the small clock would start
+            connect(date, ConstraintSet.TOP, R.id.small_clock_guideline_top, ConstraintSet.BOTTOM)
+            if (keyguardClockViewModel.isLargeClockVisible.value) {
+                constrainWidth(date, ConstraintSet.WRAP_CONTENT)
+                connect(date, ConstraintSet.START, parent, ConstraintSet.START)
+                connect(date, ConstraintSet.END, parent, ConstraintSet.END)
+                val side = (GLASS_LARGE_SIDE_DP * dp).toInt()
+                clear(large)
+                constrainWidth(large, ConstraintSet.MATCH_CONSTRAINT)
+                constrainHeight(large, (GLASS_LARGE_HEIGHT_DP * dp).toInt())
+                connect(large, ConstraintSet.TOP, date, ConstraintSet.BOTTOM, (4 * dp).toInt())
+                connect(large, ConstraintSet.START, parent, ConstraintSet.START, side)
+                connect(large, ConstraintSet.END, parent, ConstraintSet.END, side)
+            } else {
+                constrainWidth(date, ConstraintSet.WRAP_CONTENT)
+                connect(date, ConstraintSet.START, parent, ConstraintSet.START, startMargin)
+                clear(small)
+                constrainWidth(small, (GLASS_SMALL_WIDTH_DP * dp).toInt())
+                constrainHeight(small, (GLASS_SMALL_HEIGHT_DP * dp).toInt())
+                connect(small, ConstraintSet.TOP, date, ConstraintSet.BOTTOM, (2 * dp).toInt())
+                connect(small, ConstraintSet.START, parent, ConstraintSet.START, startMargin)
+            }
+            // Notifications start below the date and the clock
+            createBarrier(R.id.smart_space_barrier_bottom, Barrier.BOTTOM, 0, date, small)
+        }
     }
 
     override fun removeViews(constraintLayout: ConstraintLayout) {}
 }
+
+/** Id of the glass clock face, see DefaultClockProvider in SystemUICustomizationLib. */
+private const val GLASS_CLOCK_ID = "LINEAGE_GLASS"
+private const val GLASS_LARGE_HEIGHT_DP = 300
+private const val GLASS_LARGE_SIDE_DP = 28
+private const val GLASS_SMALL_WIDTH_DP = 240
+private const val GLASS_SMALL_HEIGHT_DP = 120
