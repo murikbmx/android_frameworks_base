@@ -29,6 +29,7 @@ import com.android.systemui.qs.panels.shared.model.groupWithMediaTile
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
 import com.android.systemui.qs.panels.ui.compose.selection.PlacementEvent
 import com.android.systemui.qs.panels.ui.model.GridCell
+import com.android.systemui.qs.panels.ui.model.SpacerGridCell
 import com.android.systemui.qs.panels.ui.model.TileGridCell
 import com.android.systemui.qs.panels.ui.model.toGridCells
 import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
@@ -178,6 +179,9 @@ class EditTileListState(
             }
         }
         val cellColumns = mutableMapOf<Int, IntRange>()
+        // Free cells at the end of the row before the player, filled in quick settings
+        val gapCellColumns = mutableMapOf<Int, IntRange>()
+        var gapStart = -1
         var row = -1
         var column = 0
         cells.forEachIndexed { index, cell ->
@@ -189,14 +193,29 @@ class EditTileListState(
             if (cell.row == media.row && cell !== media) {
                 cellColumns[index] = column until column + width
             }
+            if (cell.row == media.row - 1 && cell is SpacerGridCell) {
+                if (gapStart < 0) gapStart = column
+                gapCellColumns[index] = column until column + width
+            }
             column += width
         }
+        var gapColumn = gapStart
+        val gap =
+            if (gapStart < 0) emptyList()
+            else
+                block.gapFill.map { sized ->
+                    MediaGhost(sized.tile, gapColumn, sized.width).also {
+                        gapColumn += sized.width
+                    }
+                }
         return MediaRowGhosts(
             cellColumns = cellColumns,
             sideColumns = block.sideColumns,
             sideSpecs = block.side.map { it.tileSpec },
             top = ghostsOf(0),
             bottom = ghostsOf(1),
+            gapCellColumns = if (gap.isEmpty()) emptyMap() else gapCellColumns,
+            gap = gap,
         )
     }
 
@@ -403,9 +422,15 @@ class MediaRowGhosts(
     val sideSpecs: List<TileSpec>,
     val top: List<MediaGhost>,
     val bottom: List<MediaGhost>,
+    private val gapCellColumns: Map<Int, IntRange> = emptyMap(),
+    /** The tiles quick settings moves into the free cells of the row before the player. */
+    val gap: List<MediaGhost> = emptyList(),
 ) {
     /** The grid columns covered by the cell at [index] if it is next to the player. */
     fun columnsOf(index: Int): IntRange? = cellColumns[index]
+
+    /** The grid columns of the free cell at [index] in the row before the player, if any. */
+    fun gapColumnsOf(index: Int): IntRange? = gapCellColumns[index]
 
     /** The second row tile covering grid [column], if any. */
     fun bottomAt(column: Int): MediaGhost? =

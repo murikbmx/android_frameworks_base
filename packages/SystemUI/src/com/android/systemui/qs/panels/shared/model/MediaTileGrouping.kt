@@ -52,6 +52,11 @@ sealed interface QSGridItem<T> {
         val sideRows: List<List<SizedTile<T>>>,
         /** The player is on the end side, the side tiles before it. */
         val playerAtEnd: Boolean = false,
+        /**
+         * Tiles from after the player filling the gap left at the end of the row before it, as
+         * the player is too wide for that gap.
+         */
+        val gapFill: List<SizedTile<T>> = emptyList(),
     ) : QSGridItem<T> {
         /** The tiles next to the player, row by row. */
         val side: List<T>
@@ -116,8 +121,8 @@ fun <T> groupWithMediaTile(
         return result
     }
     // The block always starts a new row: fill the gap left in the current row first.
+    val fill = mutableListOf<SizedTile<T>>()
     if (row.tiles.isNotEmpty() && !row.isFull()) {
-        val fill = mutableListOf<SizedTile<T>>()
         for (tile in rest) {
             if (row.isFull()) break
             if (row.maybeAddTile(tile)) fill.add(tile)
@@ -134,6 +139,7 @@ fun <T> groupWithMediaTile(
             sideColumns = sideColumns,
             rows = size.rows,
             sideRows = sideRows,
+            gapFill = fill,
         )
     )
     rest.filterNot { side.contains(it) }.forEach { result.add(QSGridItem.Single(it)) }

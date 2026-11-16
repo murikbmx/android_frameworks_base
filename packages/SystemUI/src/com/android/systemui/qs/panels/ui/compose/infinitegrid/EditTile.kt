@@ -942,6 +942,12 @@ fun LazyGridScope.EditTiles(
                                 selectionState.select(it)
                             }
                         }
+                        // So are the free cells of the row before the player, too narrow for it
+                        ghosts?.gapColumnsOf(index)?.let { columns ->
+                            GhostTiles(ghosts.gap, columns, movingSpec, listState) {
+                                selectionState.select(it)
+                            }
+                        }
                     }
                 }
         }
