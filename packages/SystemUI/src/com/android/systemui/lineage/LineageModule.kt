@@ -25,6 +25,7 @@ import com.android.systemui.qs.tiles.AODTile
 import com.android.systemui.CoreStartable
 import com.android.systemui.lineage.batteryring.BatteryRingController
 import com.android.systemui.lineage.sidebar.SidebarController
+import com.android.systemui.lineage.visualizer.VisualizerController
 import com.android.systemui.qs.tiles.CaffeineTile
 import com.android.systemui.qs.tiles.MediaPlayerTile
 import com.android.systemui.qs.tiles.HeadsUpTile
@@ -57,6 +58,12 @@ interface LineageModule {
     @IntoMap
     @ClassKey(BatteryRingController::class)
     fun bindBatteryRingController(controller: BatteryRingController): CoreStartable
+
+    /** Start the lockscreen music visualizer */
+    @Binds
+    @IntoMap
+    @ClassKey(VisualizerController::class)
+    fun bindVisualizerController(controller: VisualizerController): CoreStartable
 
     /** Inject AmbientDisplayTile into tileMap in QSModule */
     @Binds
