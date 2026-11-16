@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import com.android.systemui.customization.R
 import com.android.systemui.customization.clocks.utils.ViewUtils.computeLayoutDiff
 import com.android.systemui.customization.clocks.utils.ViewUtils.translation
@@ -31,6 +32,7 @@ import com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceController
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceEvents
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceLayout
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockPositionAnimationArgs
+import com.android.systemui.plugins.keyguard.ui.clocks.ClockPreviewConfig
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockSettings
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.plugins.keyguard.ui.clocks.ThemeConfig
@@ -121,7 +123,7 @@ class GlassClockController(
         override val view: View
             get() = clockView
 
-        override val layout: ClockFaceLayout = DefaultClockFaceLayout(clockView)
+        override val layout: ClockFaceLayout = GlassClockFaceLayout(clockView)
 
         override val config = ClockFaceConfig()
 
@@ -221,3 +223,38 @@ class GlassClockController(
             }
     }
 }
+
+/**
+ * Like the lockscreen (see KeyguardSliceViewSection), the large digits in the picker preview sit
+ * high, inset from the screen sides with a fixed height, instead of the stock large clock area.
+ */
+private class GlassClockFaceLayout(view: View) : DefaultClockFaceLayout(view) {
+    override fun applyPreviewConstraints(
+        clockPreviewConfig: ClockPreviewConfig,
+        constraints: ConstraintSet,
+    ): ConstraintSet {
+        super.applyPreviewConstraints(clockPreviewConfig, constraints)
+        val dp = view.resources.displayMetrics.density
+        val large = ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE
+        return constraints.apply {
+            clear(large)
+            constrainWidth(large, ConstraintSet.MATCH_CONSTRAINT)
+            constrainHeight(large, (PREVIEW_LARGE_HEIGHT_DP * dp).toInt())
+            connect(
+                large,
+                ConstraintSet.TOP,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.TOP,
+                (PREVIEW_LARGE_TOP_DP * dp).toInt(),
+            )
+            val side = (PREVIEW_LARGE_SIDE_DP * dp).toInt()
+            connect(large, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, side)
+            connect(large, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, side)
+        }
+    }
+}
+
+// Same place and size as on the lockscreen: under the status bar and the date
+private const val PREVIEW_LARGE_TOP_DP = 124
+private const val PREVIEW_LARGE_HEIGHT_DP = 300
+private const val PREVIEW_LARGE_SIDE_DP = 28
