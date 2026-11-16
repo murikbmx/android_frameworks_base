@@ -16,6 +16,8 @@
 
 PRODUCT_PACKAGES := \
     AndroidClock.ttf \
+    GoogleSans-Italic.ttf \
+    GoogleSans-Regular.ttf \
     font_fallback.xml \
     fonts.xml
 

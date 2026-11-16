@@ -1,0 +1,44 @@
+[
+    {
+        // Google Sans (v12, from external/robolectric) as the default
+        // sans-serif family, replacing Roboto (external/roboto-fonts).
+        "name": "sans-serif",
+        "fonts": [
+            {
+                "file": "GoogleSans-Regular.ttf",
+                "style": "normal",
+                "supportedAxes": "wght"
+            },
+            {
+                "file": "GoogleSans-Italic.ttf",
+                "style": "italic",
+                "supportedAxes": "wght"
+            }
+        ]
+    },
+    {
+        "name": "sans-serif-condensed",
+        "fonts": [
+            {
+                "file": "Roboto-Regular.ttf",
+                "supportedAxes": "wght,ital",
+                "axes": {
+                    "wdth": "75"
+                }
+            }
+        ]
+    },
+    {
+        // Always install roboto font since ThemeHostTest depends on Roboto font.
+        "name": "roboto",
+        "fonts": [
+            {
+                "file": "Roboto-Regular.ttf",
+                "supportedAxes": "wght,ital",
+                "axes": {
+                    "wdth": "100"
+                }
+            }
+        ]
+    }
+]

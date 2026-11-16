@@ -89,7 +89,7 @@ genrule {
         ":ComingSoon",
         ":CutiveMono",
         ":DancingScript",
-        ":Roboto",
+        ":GoogleSansSystem",
         ":RobotoFlex",
         ":SourceSansPro",
         ":noto-fonts",
