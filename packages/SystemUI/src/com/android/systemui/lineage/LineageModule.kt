@@ -24,6 +24,7 @@ import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
 import com.android.systemui.CoreStartable
 import com.android.systemui.lineage.batteryring.BatteryRingController
+import com.android.systemui.lineage.mediaart.MediaArtController
 import com.android.systemui.lineage.sidebar.SidebarController
 import com.android.systemui.lineage.visualizer.VisualizerController
 import com.android.systemui.qs.tiles.CaffeineTile
@@ -64,6 +65,12 @@ interface LineageModule {
     @IntoMap
     @ClassKey(VisualizerController::class)
     fun bindVisualizerController(controller: VisualizerController): CoreStartable
+
+    /** Show the album art of the playing music on the lockscreen */
+    @Binds
+    @IntoMap
+    @ClassKey(MediaArtController::class)
+    fun bindMediaArtController(controller: MediaArtController): CoreStartable
 
     /** Inject AmbientDisplayTile into tileMap in QSModule */
     @Binds
