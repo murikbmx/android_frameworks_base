@@ -33,6 +33,25 @@
         android:layout_height="match_parent"
         android:visibility="gone" />
 
+    <!-- Album art of the playing music, over the lockscreen wallpaper -->
+    <ImageView
+        android:id="@+id/lockscreen_media_art"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
+
+    <!-- Lockscreen music visualizer, under the shade scrim, so the shade covers it -->
+    <com.android.systemui.lineage.visualizer.VisualizerView
+        android:id="@+id/lockscreen_visualizer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:visibility="gone"
+        sysui:ignoreRightInset="true" />
+
     <com.android.systemui.scrim.ScrimView
         android:id="@+id/scrim_behind"
         android:layout_width="match_parent"

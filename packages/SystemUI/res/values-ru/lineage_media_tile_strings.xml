@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="quick_settings_media_player_label">Музыка</string>
+    <string name="qs_media_tile_nothing_playing">Ничего не играет</string>
+    <string name="qs_media_tile_size">Размер плитки</string>
+    <string name="qs_media_tile_previous">Предыдущий трек</string>
+    <string name="qs_media_tile_next">Следующий трек</string>
+    <string name="qs_media_tile_play">Воспроизвести</string>
+    <string name="qs_media_tile_pause">Пауза</string>
+</resources>

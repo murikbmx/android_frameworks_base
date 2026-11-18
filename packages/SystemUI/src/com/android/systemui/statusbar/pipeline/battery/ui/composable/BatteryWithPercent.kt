@@ -17,6 +17,7 @@
 package com.android.systemui.statusbar.pipeline.battery.ui.composable
 
 import android.graphics.Rect
+import android.os.SystemProperties
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -48,7 +49,19 @@ fun BatteryWithPercent(
     modifier: Modifier = Modifier,
     showPercent: Boolean = true,
     showEstimate: Boolean = false,
+    hideWithHiddenStyle: Boolean = true,
 ) {
+    // The ring around the camera replaces the status bar battery
+    val ringSupported = remember {
+        SystemProperties.getBoolean("ro.lineage.battery_ring.supported", false)
+    }
+    if (
+        hideWithHiddenStyle &&
+            ringSupported &&
+            viewModel.batteryIconStyle == BatteryRepository.ICON_STYLE_HIDDEN
+    ) {
+        return
+    }
     val batteryHeight =
         with(LocalDensity.current) {
             BatteryViewModel.getStatusBarBatteryHeight(LocalContext.current).toDp()

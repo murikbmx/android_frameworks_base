@@ -20,6 +20,8 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.os.PersistableBundle;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.telephony.Annotation;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionInfo;
@@ -222,6 +224,13 @@ public class MobileMappings {
         public boolean alwaysShowDataRatIcon = false;
         public MobileIconGroup mobileIconGroup5gPlus = TelephonyIcons.NR_5G_PLUS;
 
+        /** {@link Settings.Secure#STATUS_BAR_LTE_ICON_STYLE}: follow the carrier config. */
+        public static final int LTE_ICON_STYLE_CARRIER = 0;
+        /** {@link Settings.Secure#STATUS_BAR_LTE_ICON_STYLE}: always show LTE. */
+        public static final int LTE_ICON_STYLE_LTE = 1;
+        /** {@link Settings.Secure#STATUS_BAR_LTE_ICON_STYLE}: always show 4G. */
+        public static final int LTE_ICON_STYLE_4G = 2;
+
         /**
          * Reads the latest configs.
          */
@@ -253,6 +262,20 @@ public class MobileMappings {
                         CarrierConfigManager.KEY_SHOW_4G_FOR_3G_DATA_ICON_BOOL);
                 config.hideLtePlus = b.getBoolean(
                         CarrierConfigManager.KEY_HIDE_LTE_PLUS_DATA_ICON_BOOL);
+            }
+
+            // The user can override how the carrier wants LTE to be shown.
+            switch (Settings.Secure.getIntForUser(context.getContentResolver(),
+                    Settings.Secure.STATUS_BAR_LTE_ICON_STYLE, LTE_ICON_STYLE_CARRIER,
+                    UserHandle.USER_CURRENT)) {
+                case LTE_ICON_STYLE_LTE:
+                    config.show4gForLte = false;
+                    config.show4glteForLte = false;
+                    break;
+                case LTE_ICON_STYLE_4G:
+                    config.show4gForLte = true;
+                    config.show4glteForLte = false;
+                    break;
             }
 
             SubscriptionManager subscriptionManager =

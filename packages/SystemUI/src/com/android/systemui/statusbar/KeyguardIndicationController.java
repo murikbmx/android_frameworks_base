@@ -136,6 +136,7 @@ import dagger.Lazy;
 import java.io.PrintWriter;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -665,7 +666,7 @@ public class KeyguardIndicationController {
             String powerIndication = computePowerIndication();
             String chargingDetails = computeChargingDetails();
             if (chargingDetails != null) {
-                powerIndication += " • " + chargingDetails;
+                powerIndication = stackChargingLines(powerIndication, chargingDetails);
             }
             if (DEBUG_CHARGING_SPEED) {
                 powerIndication += ",  " + (mChargingWattage / 1000) + " mW";
@@ -1241,6 +1242,28 @@ public class KeyguardIndicationController {
      * if the user didn't enable them or nothing is reported by the device.
      */
     @Nullable
+    /**
+     * Charging state, time left and details on their own lines, so that the long indication
+     * never wraps in the middle of a value: "44 % • Fast charging", "Full in 32 min",
+     * "2.9 A · 25.4 W · 33.1 °C".
+     */
+    private static String stackChargingLines(String powerIndication, String details) {
+        final String[] parts = powerIndication.split(" • ");
+        final List<String> lines = new ArrayList<>();
+        if (parts.length >= 3) {
+            lines.add(parts[0] + " • " + parts[1]);
+            lines.add(String.join(" • ", Arrays.copyOfRange(parts, 2, parts.length)));
+        } else {
+            lines.add(powerIndication);
+        }
+        lines.add(details);
+        // No wrapping inside a line
+        for (int i = 0; i < lines.size(); i++) {
+            lines.set(i, lines.get(i).replace(' ', '\u00A0'));
+        }
+        return String.join("\n", lines);
+    }
+
     private String computeChargingDetails() {
         if (!mPowerPluggedIn || mPowerCharged || Settings.Secure.getIntForUser(
                 mContext.getContentResolver(), Settings.Secure.LOCKSCREEN_CHARGING_DETAILS, 0,

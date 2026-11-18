@@ -18,9 +18,27 @@ package com.android.systemui.statusbar.pipeline.mobile.ui.view
 
 import android.annotation.StyleRes
 import android.content.Context
+import android.database.ContentObserver
+import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
+import android.os.UserHandle
+import android.provider.Settings
+import android.telephony.AccessNetworkConstants
+import android.telephony.SubscriptionManager
+import android.telephony.ims.ImsException
+import android.telephony.ims.ImsManager
+import android.telephony.ims.ImsMmTelManager
+import android.telephony.ims.ImsReasonInfo
+import android.telephony.ims.ImsRegistrationAttributes
+import android.telephony.ims.RegistrationManager
+import android.telephony.ims.feature.MmTelFeature
 import android.util.AttributeSet
+import android.util.Log
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.widget.LinearLayout
+import android.widget.TextView
 import com.android.systemui.kairos.KairosNetwork
 import com.android.systemui.kairos.buildSpec
 import com.android.systemui.res.R
@@ -55,12 +73,126 @@ class ModernShadeCarrierGroupMobileView(context: Context, attrs: AttributeSet?) 
 
     private lateinit var binding: ModernShadeCarrierGroupMobileViewBinding
 
+    private val imsText: TextView by lazy { requireViewById(R.id.mobile_ims_text) }
+    private var imsMmTelManager: ImsMmTelManager? = null
+    private var isImsRegistered = false
+    private var imsTransportType = AccessNetworkConstants.TRANSPORT_TYPE_INVALID
+    private var isImsVoiceCapable = false
+
+    private val imsRegistrationCallback =
+        object : RegistrationManager.RegistrationCallback() {
+            override fun onRegistered(attributes: ImsRegistrationAttributes) {
+                isImsRegistered = true
+                imsTransportType = attributes.transportType
+                updateImsStatus()
+            }
+
+            override fun onUnregistered(info: ImsReasonInfo) {
+                isImsRegistered = false
+                updateImsStatus()
+            }
+        }
+
+    private val imsCapabilityCallback =
+        object : ImsMmTelManager.CapabilityCallback() {
+            override fun onCapabilitiesStatusChanged(
+                capabilities: MmTelFeature.MmTelCapabilities
+            ) {
+                isImsVoiceCapable =
+                    capabilities.isCapable(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE)
+                updateImsStatus()
+            }
+        }
+
+    private val imsSettingObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                updateImsStatus()
+            }
+        }
+
     /**
      * Update the appearance of the mobile carrier group. The text itself can use the text
      * appearance resId, but the mobile icon needs to know specifically about fg/bg colors.
      */
     fun setStyleAndTint(@StyleRes styleResId: Int, fgColor: Int, bgColor: Int) {
         binding.setStyleAndTint(style = styleResId, fgColor = fgColor, bgColor = bgColor)
+        // The badge follows the carrier text, only with a smaller text size and an outline.
+        imsText.setTextAppearance(styleResId)
+        imsText.setTextSize(
+            TypedValue.COMPLEX_UNIT_PX,
+            resources.getDimension(R.dimen.shade_ims_status_text_size),
+        )
+        imsText.background =
+            GradientDrawable().apply {
+                cornerRadius = resources.getDimension(R.dimen.shade_ims_status_corner_radius)
+                setStroke(
+                    resources.getDimensionPixelSize(R.dimen.shade_ims_status_stroke_width),
+                    imsText.currentTextColor,
+                )
+            }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        context.contentResolver.registerContentObserver(
+            Settings.Secure.getUriFor(Settings.Secure.SHADE_IMS_STATUS),
+            /* notifyForDescendants= */ false,
+            imsSettingObserver,
+            UserHandle.USER_ALL,
+        )
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            return
+        }
+        val manager =
+            context.getSystemService(ImsManager::class.java)?.getImsMmTelManager(subId) ?: return
+        try {
+            manager.registerImsRegistrationCallback(context.mainExecutor, imsRegistrationCallback)
+            manager.registerMmTelCapabilityCallback(context.mainExecutor, imsCapabilityCallback)
+            imsMmTelManager = manager
+        } catch (e: ImsException) {
+            // IMS isn't available for this subscription, e.g. there is no IMS service.
+            Log.d(TAG, "IMS isn't available for subId=$subId", e)
+        } catch (e: IllegalArgumentException) {
+            Log.d(TAG, "Invalid subId=$subId for IMS", e)
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        context.contentResolver.unregisterContentObserver(imsSettingObserver)
+        imsMmTelManager?.let {
+            it.unregisterImsRegistrationCallback(imsRegistrationCallback)
+            it.unregisterMmTelCapabilityCallback(imsCapabilityCallback)
+        }
+        imsMmTelManager = null
+        isImsRegistered = false
+        isImsVoiceCapable = false
+        updateImsStatus()
+        super.onDetachedFromWindow()
+    }
+
+    /** Shows VoLTE or VoWiFi while IMS is registered for voice, hides the badge otherwise. */
+    private fun updateImsStatus() {
+        val enabled =
+            Settings.Secure.getIntForUser(
+                context.contentResolver,
+                Settings.Secure.SHADE_IMS_STATUS,
+                1,
+                UserHandle.USER_CURRENT,
+            ) == 1
+        val label =
+            when {
+                !enabled || !isImsRegistered || !isImsVoiceCapable -> null
+                imsTransportType == AccessNetworkConstants.TRANSPORT_TYPE_WLAN ->
+                    R.string.shade_ims_status_vowifi
+                else -> R.string.shade_ims_status_volte
+            }
+        if (label == null) {
+            imsText.visibility = GONE
+        } else {
+            imsText.setText(label)
+            imsText.visibility = VISIBLE
+        }
     }
 
     override fun toString(): String {
@@ -70,6 +202,7 @@ class ModernShadeCarrierGroupMobileView(context: Context, attrs: AttributeSet?) 
     }
 
     companion object {
+        private const val TAG = "ModernShadeCarrierGroupMobileView"
 
         /**
          * Inflates a new instance of [ModernShadeCarrierGroupMobileView], binds it to [viewModel],

@@ -115,4 +115,7 @@ public interface DesktopMode {
 
     /** Called when requested to toggle peek state in desktop mode. */
     void togglePeek(int displayId);
+
+    /** Minimizes the desktop task [taskId], keeping it in the taskbar. */
+    default void minimizeTask(int taskId) {}
 }

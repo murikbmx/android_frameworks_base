@@ -22,13 +22,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.geometry.Offset
+import com.android.systemui.qs.panels.shared.model.MediaTileSize
+import com.android.systemui.qs.panels.shared.model.QSGridItem
 import com.android.systemui.qs.panels.shared.model.SizedTile
+import com.android.systemui.qs.panels.shared.model.groupWithMediaTile
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
 import com.android.systemui.qs.panels.ui.compose.selection.PlacementEvent
 import com.android.systemui.qs.panels.ui.model.GridCell
+import com.android.systemui.qs.panels.ui.model.SpacerGridCell
 import com.android.systemui.qs.panels.ui.model.TileGridCell
 import com.android.systemui.qs.panels.ui.model.toGridCells
 import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
+import com.android.systemui.qs.panels.domain.interactor.MediaTileInteractor
 import com.android.systemui.qs.pipeline.shared.TileSpec
 
 /**
@@ -40,7 +45,12 @@ class EditTileListState(
     initialLargeTiles: Set<TileSpec>,
     val columns: Int,
     val largeTilesSpan: Int,
+    initialMediaWidth: Int = 0,
 ) : DragAndDropState {
+    /** Width (in columns) of the music player tile, 0 if it has no special width. */
+    var mediaWidth: Int = initialMediaWidth
+        private set
+
     override var draggedCell by mutableStateOf<SizedTile<EditTileViewModel>?>(null)
         private set
 
@@ -116,12 +126,149 @@ class EditTileListState(
         if (fromIndex != INVALID_INDEX) {
             val cell = _tiles[fromIndex] as TileGridCell
 
-            if (cell.isIcon == toIcon) return
+            if (cell.isIcon == toIcon || isMedia(tileSpec)) return
 
             _tiles[fromIndex] = cell.copy(width = if (toIcon) 1 else largeTilesSpan)
             regenerateGrid(fromIndex)
         }
     }
+
+    /** Set the width of the music player tile, in columns. */
+    fun resizeMediaTile(width: Int) {
+        mediaWidth = width
+        val fromIndex = _tiles.indexOfFirst { it is TileGridCell && isMedia(it.tile.tileSpec) }
+        if (fromIndex != INVALID_INDEX) {
+            val cell = _tiles[fromIndex] as TileGridCell
+            val newWidth = width.coerceIn(1, columns)
+            if (cell.width == newWidth) return
+            _tiles[fromIndex] = cell.copy(width = newWidth)
+            regenerateGrid(fromIndex)
+        }
+    }
+
+    private fun isMedia(spec: TileSpec) = spec == MediaTileInteractor.SPEC
+
+    /**
+     * The tiles quick settings shows next to the music player, placed on the cells of the player
+     * row of this grid; null if there's no music player tile.
+     */
+    fun mediaRowGhosts(): MediaRowGhosts? {
+        val cells = _tiles.toList()
+        val media =
+            cells.firstOrNull { it is TileGridCell && isMedia(it.tile.tileSpec) } as? TileGridCell
+                ?: return null
+        val block =
+            groupWithMediaTile(
+                    cells.filterIsInstance<TileGridCell>(),
+                    columns,
+                    MediaTileSize.fromColumns(media.width),
+                ) {
+                    isMedia(it.tileSpec)
+                }
+                .firstNotNullOfOrNull { it as? QSGridItem.MediaBlock<EditTileViewModel> }
+                ?: return null
+        // Grid columns next to the player, in order
+        val sideColumns =
+            (0 until columns).filter { it < media.column || it >= media.column + media.width }
+        fun ghostsOf(row: Int): List<MediaGhost> {
+            var position = 0
+            return block.sideRows.getOrNull(row).orEmpty().mapNotNull { sized ->
+                val column = sideColumns.getOrNull(position)
+                position += sized.width
+                column?.let { MediaGhost(sized.tile, it, sized.width) }
+            }
+        }
+        val cellColumns = mutableMapOf<Int, IntRange>()
+        // Free cells at the end of the row before the player, filled in quick settings
+        val gapCellColumns = mutableMapOf<Int, IntRange>()
+        var gapStart = -1
+        var row = -1
+        var column = 0
+        cells.forEachIndexed { index, cell ->
+            if (cell.row != row) {
+                row = cell.row
+                column = 0
+            }
+            val width = cell.span.currentLineSpan
+            if (cell.row == media.row && cell !== media) {
+                cellColumns[index] = column until column + width
+            }
+            if (cell.row == media.row - 1 && cell is SpacerGridCell) {
+                if (gapStart < 0) gapStart = column
+                gapCellColumns[index] = column until column + width
+            }
+            column += width
+        }
+        var gapColumn = gapStart
+        val gap =
+            if (gapStart < 0) emptyList()
+            else
+                block.gapFill.map { sized ->
+                    MediaGhost(sized.tile, gapColumn, sized.width).also {
+                        gapColumn += sized.width
+                    }
+                }
+        return MediaRowGhosts(
+            cellColumns = cellColumns,
+            sideColumns = block.sideColumns,
+            sideSpecs = block.side.map { it.tileSpec },
+            top = ghostsOf(0),
+            bottom = ghostsOf(1),
+            gapCellColumns = if (gap.isEmpty()) emptyMap() else gapCellColumns,
+            gap = gap,
+        )
+    }
+
+    /**
+     * Drag target on the second row of the music player block, below the cell at [target] and at
+     * grid [column]: the dragged tile takes the place of the tile shown there. Returns false if
+     * [target] isn't a cell next to the player.
+     */
+    override fun onTargetingMediaRow(target: Int, column: Int): Boolean {
+        val dragged = draggedCell ?: return false
+        val spec = dragged.tile.tileSpec
+        if (isMedia(spec)) return false
+        val ghosts = mediaRowGhosts() ?: return false
+        if (ghosts.columnsOf(target) == null) return false
+        val fromIndex = indexOf(spec)
+        val width = (_tiles.getOrNull(fromIndex) as? TileGridCell)?.width ?: dragged.width
+        // Too wide to sit next to the player: ignore the target
+        if (width > ghosts.sideColumns) return true
+        val ghost = ghosts.bottomAt(column)
+        if (ghost?.tile?.tileSpec == spec) return true
+
+        // Position of the target among the tiles next to the player, in quick settings order
+        val position = ghost?.let { ghosts.sideSpecs.indexOf(it.tile.tileSpec) } ?: Int.MAX_VALUE
+        val cell =
+            if (fromIndex != INVALID_INDEX) {
+                _tiles.removeAt(fromIndex) as TileGridCell
+            } else {
+                TileGridCell(SizedTileImpl(dragged.tile, width), 0, 0)
+            }
+        regenerateGrid()
+        // Without the dragged tile, the tiles after it move up a place: insert it before the tile
+        // now at the target position, or after the last one
+        val sideSpecs = mediaRowGhosts()?.sideSpecs.orEmpty()
+        val insertionIndex =
+            sideSpecs.getOrNull(position)?.let { indexOf(it) }?.takeIf { it != INVALID_INDEX }
+                ?: run {
+                    val last = sideSpecs.maxOfOrNull { indexOf(it) } ?: -1
+                    val anchor =
+                        if (last >= 0) last
+                        else _tiles.indexOfFirst { it is TileGridCell && isMedia(it.tile.tileSpec) }
+                    anchor + 1
+                }
+        _tiles.add(insertionIndex.coerceIn(0, _tiles.size), cell)
+        regenerateGrid()
+        return true
+    }
+
+    private fun widthOf(spec: TileSpec, largeTiles: Set<TileSpec>): Int =
+        when {
+            isMedia(spec) && mediaWidth > 0 -> mediaWidth.coerceIn(1, columns)
+            largeTiles.contains(spec) -> largeTilesSpan
+            else -> 1
+        }
 
     override fun isMoving(tileSpec: TileSpec): Boolean {
         return draggedCell?.let { it.tile.tileSpec == tileSpec } ?: false
@@ -148,7 +295,21 @@ class EditTileListState(
         } else {
             // Add the tile with a temporary row/col which will get reassigned when
             // regenerating spacers
-            _tiles.add(insertionIndex.coerceIn(0, _tiles.size), TileGridCell(draggedTile, 0, 0))
+            _tiles.add(
+                insertionIndex.coerceIn(0, _tiles.size),
+                TileGridCell(
+                    SizedTileImpl(
+                        draggedTile.tile,
+                        if (isMedia(draggedTile.tile.tileSpec)) {
+                            widthOf(draggedTile.tile.tileSpec, largeTilesSpecs)
+                        } else {
+                            draggedTile.width
+                        },
+                    ),
+                    0,
+                    0,
+                ),
+            )
         }
 
         regenerateGrid()
@@ -217,9 +378,7 @@ class EditTileListState(
     }
 
     private fun List<EditTileViewModel>.toGridCells(largeTiles: Set<TileSpec>): List<GridCell> {
-        return map {
-                SizedTileImpl(it, if (largeTiles.contains(it.tileSpec)) largeTilesSpan else 1)
-            }
+        return map { SizedTileImpl(it, widthOf(it.tileSpec, largeTiles)) }
             .toGridCells(columns)
     }
 
@@ -248,4 +407,32 @@ class EditTileListState(
     companion object {
         const val INVALID_INDEX = -1
     }
+}
+
+/** A tile quick settings shows next to the music player, at grid [column] of the player rows. */
+data class MediaGhost(val tile: EditTileViewModel, val column: Int, val width: Int)
+
+/**
+ * The tiles quick settings shows next to the music player: [top] for the first row, [bottom] for
+ * the second one. [sideColumns] is the number of free columns next to the player.
+ */
+class MediaRowGhosts(
+    private val cellColumns: Map<Int, IntRange>,
+    val sideColumns: Int,
+    val sideSpecs: List<TileSpec>,
+    val top: List<MediaGhost>,
+    val bottom: List<MediaGhost>,
+    private val gapCellColumns: Map<Int, IntRange> = emptyMap(),
+    /** The tiles quick settings moves into the free cells of the row before the player. */
+    val gap: List<MediaGhost> = emptyList(),
+) {
+    /** The grid columns covered by the cell at [index] if it is next to the player. */
+    fun columnsOf(index: Int): IntRange? = cellColumns[index]
+
+    /** The grid columns of the free cell at [index] in the row before the player, if any. */
+    fun gapColumnsOf(index: Int): IntRange? = gapCellColumns[index]
+
+    /** The second row tile covering grid [column], if any. */
+    fun bottomAt(column: Int): MediaGhost? =
+        bottom.firstOrNull { column >= it.column && column < it.column + it.width }
 }

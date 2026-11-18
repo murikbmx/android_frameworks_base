@@ -36,6 +36,7 @@ fun rememberResizingState(tileSpec: TileSpec, startsAsIcon: Boolean): ResizingSt
 
 enum class QSDragAnchor {
     Icon,
+    Medium,
     Large,
 }
 
@@ -50,6 +51,55 @@ data class QSDragAnchorsData(val isIcon: Boolean, val width: Int)
 class ResizingState(tileSpec: TileSpec, startsAsIcon: Boolean) {
     val anchoredDraggableState =
         AnchoredDraggableState(if (startsAsIcon) QSDragAnchor.Icon else QSDragAnchor.Large)
+
+    /**
+     * Music player tile: three widths (2, 3 and 4 columns) mapped to the Icon, Medium and Large
+     * anchors instead of the usual icon / large pair.
+     */
+    var isMediaTile = false
+        private set
+
+    val mediaWidth: Int
+        get() = mediaWidthOf(anchoredDraggableState.currentValue)
+
+    val settledMediaWidth: Int
+        get() = mediaWidthOf(anchoredDraggableState.settledValue)
+
+    private fun mediaWidthOf(anchor: QSDragAnchor) =
+        when (anchor) {
+            QSDragAnchor.Icon -> MEDIA_MIN_WIDTH
+            QSDragAnchor.Medium -> MEDIA_MIN_WIDTH + 1
+            QSDragAnchor.Large -> MEDIA_MIN_WIDTH + 2
+        }
+
+    private fun anchorForMediaWidth(width: Int) =
+        when {
+            width <= MEDIA_MIN_WIDTH -> QSDragAnchor.Icon
+            width == MEDIA_MIN_WIDTH + 1 -> QSDragAnchor.Medium
+            else -> QSDragAnchor.Large
+        }
+
+    /** Anchors for the music player tile, from the width of one grid cell. */
+    fun updateMediaAnchors(cellWidth: Int, padding: Int) {
+        isMediaTile = true
+        fun widthFor(columns: Int) = (cellWidth * columns + padding * (columns - 1)).toFloat()
+        anchoredDraggableState.updateAnchors(
+            DraggableAnchors {
+                QSDragAnchor.Icon at widthFor(MEDIA_MIN_WIDTH)
+                QSDragAnchor.Medium at widthFor(MEDIA_MIN_WIDTH + 1)
+                QSDragAnchor.Large at widthFor(MEDIA_MIN_WIDTH + 2)
+            }
+        )
+    }
+
+    suspend fun updateMediaWidth(width: Int) {
+        anchoredDraggableState.animateTo(anchorForMediaWidth(width))
+    }
+
+    suspend fun cycleMediaWidth() {
+        val next = if (mediaWidth >= MEDIA_MIN_WIDTH + 2) MEDIA_MIN_WIDTH else mediaWidth + 1
+        updateMediaWidth(next)
+    }
 
     val bounds by derivedStateOf {
         anchoredDraggableState.anchors.minPosition().takeIf { !it.isNaN() } to
@@ -112,6 +162,10 @@ class ResizingState(tileSpec: TileSpec, startsAsIcon: Boolean) {
     }
 
     fun progress(): Float {
+        if (isMediaTile) {
+            // The music player always shows as a large tile
+            return 1f
+        }
         // Check if anchors are defined before calculating progress since it defaults to 1f
         // otherwise.
         return if (
@@ -122,6 +176,10 @@ class ResizingState(tileSpec: TileSpec, startsAsIcon: Boolean) {
         } else {
             anchoredDraggableState.progress(QSDragAnchor.Icon, QSDragAnchor.Large)
         }
+    }
+
+    companion object {
+        const val MEDIA_MIN_WIDTH = 2
     }
 
     /**

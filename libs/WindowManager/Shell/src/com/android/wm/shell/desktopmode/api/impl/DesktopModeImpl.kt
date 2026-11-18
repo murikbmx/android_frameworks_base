@@ -173,6 +173,11 @@ class DesktopModeImpl(
             Boolean::class.javaObjectType,
         ) ?: false
 
+    override fun minimizeTask(taskId: Int) {
+        ProtoLog.v(WM_SHELL_DESKTOP_MODE, "$TAG: minimizeTask taskId=%d", taskId)
+        mainExecutor.execute { desktopTasksController.getOrNull()?.minimizeTask(taskId) }
+    }
+
     override fun togglePeek(displayId: Int) {
         if (displayId != DEFAULT_DISPLAY) {
             ProtoLog.w(

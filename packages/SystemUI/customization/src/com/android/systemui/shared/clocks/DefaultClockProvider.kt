@@ -36,9 +36,12 @@ import com.android.systemui.plugins.keyguard.ui.clocks.ClockSettings
 import com.android.systemui.shared.clocks.controller.FlexClockController
 import com.android.systemui.shared.clocks.controller.FlexClockController.Companion.buildPresetGroup
 import com.android.systemui.shared.clocks.controller.FlexClockController.Companion.getDefaultAxes
+import com.android.systemui.shared.clocks.controller.GlassClockController
 
 private val TAG = DefaultClockProvider::class.simpleName
 const val DEFAULT_CLOCK_ID = "DEFAULT"
+/** One row of tall frosted glass digits. */
+const val GLASS_CLOCK_ID = "LINEAGE_GLASS"
 const val FLEX_CLOCK_ID = "DIGITAL_CLOCK_FLEX"
 
 /** Provides the default system clock */
@@ -60,12 +63,16 @@ constructor(
         return listOf(
             ClockMetadata(DEFAULT_CLOCK_ID),
             ClockMetadata(FLEX_CLOCK_ID, isDeprecated = true, replacementTarget = DEFAULT_CLOCK_ID),
+            ClockMetadata(GLASS_CLOCK_ID),
         )
     }
 
     override fun createClock(ctx: Context, settings: ClockSettings): ClockController {
         if (getClocks().all { it.clockId != settings.clockId }) {
             throw IllegalArgumentException("${settings.clockId} is unsupported by $TAG")
+        }
+        if (settings.clockId == GLASS_CLOCK_ID) {
+            return GlassClockController(ctx, resources, settings)
         }
 
         val buffers = messageBuffers ?: ClockMessageBuffers(ClockLogger.DEFAULT_MESSAGE_BUFFER)
@@ -95,6 +102,15 @@ constructor(
     override fun getClockPickerConfig(settings: ClockSettings): ClockPickerConfig {
         if (getClocks().all { it.clockId != settings.clockId }) {
             throw IllegalArgumentException("${settings.clockId} is unsupported by $TAG")
+        }
+        if (settings.clockId == GLASS_CLOCK_ID) {
+            return ClockPickerConfig(
+                GLASS_CLOCK_ID,
+                resources.getString(R.string.clock_lineage_glass_name),
+                resources.getString(R.string.clock_lineage_glass_description),
+                resources.getDrawable(R.drawable.clock_lineage_glass_thumbnail, null),
+                isReactiveToTone = true,
+            )
         }
 
         val fontAxes = getDefaultAxes(settings).merge(settings.axes)

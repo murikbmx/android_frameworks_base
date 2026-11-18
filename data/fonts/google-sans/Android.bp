@@ -1,0 +1,29 @@
+// Google Sans as the default sans-serif font.
+//
+// GoogleSans-{Regular,Italic}.ttf are Google Sans v12 as shipped in
+// external/robolectric (nativeruntime/src/main/resources/fonts). Google Sans
+// is not an open font: it is meant for this personal build only.
+
+package {
+    default_applicable_licenses: ["frameworks_base_data_fonts_license"],
+}
+
+prebuilt_font {
+    name: "GoogleSans-Regular.ttf",
+    src: "GoogleSans-Regular.ttf",
+}
+
+prebuilt_font {
+    name: "GoogleSans-Italic.ttf",
+    src: "GoogleSans-Italic.ttf",
+}
+
+filegroup {
+    name: "GoogleSansSystem",
+    srcs: ["font_config.json"],
+    required: [
+        "GoogleSans-Regular.ttf",
+        "GoogleSans-Italic.ttf",
+        "Roboto-Regular.ttf",
+    ],
+}

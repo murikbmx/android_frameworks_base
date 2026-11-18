@@ -60,6 +60,7 @@ import com.android.systemui.qs.composefragment.dagger.QSFragmentComposeModule
 import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsViewModel
 import com.android.systemui.qs.panels.domain.interactor.TileSquishinessInteractor
 import com.android.systemui.qs.panels.ui.viewmodel.InFirstPageViewModel
+import com.android.systemui.qs.panels.domain.interactor.MediaTileInteractor
 import com.android.systemui.qs.panels.ui.viewmodel.MediaInRowInLandscapeViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.QuickQuickSettingsViewModel
 import com.android.systemui.qs.ui.viewmodel.QuickSettingsContainerViewModel
@@ -119,6 +120,7 @@ constructor(
     private val mediaCarouselInteractor: MediaCarouselInteractor,
     val mediaViewModelFactory: MediaViewModel.Factory,
     shadeStatusBarComponentsInteractor: ShadeStatusBarComponentsInteractor,
+    private val mediaTileInteractor: MediaTileInteractor,
 ) : Dumpable, ExclusiveActivatable() {
 
     val containerViewModel = containerViewModelFactory.create(supportsBrightnessMirroring = true)
@@ -311,7 +313,13 @@ constructor(
             initialValue = usingMedia,
             source =
                 if (usingMedia) {
-                    mediaHostVisible(qqsMediaHost, qqsMediaUiBehavior, mediaCarouselInteractor)
+                    // The music player tile replaces the notification-style player.
+                    combine(
+                        mediaHostVisible(qqsMediaHost, qqsMediaUiBehavior, mediaCarouselInteractor),
+                        mediaTileInteractor.isTileAdded,
+                    ) { visible, tileAdded ->
+                        visible && !tileAdded
+                    }
                 } else {
                     flowOf(false)
                 },
@@ -326,7 +334,13 @@ constructor(
             initialValue = usingMedia,
             source =
                 if (usingMedia) {
-                    mediaHostVisible(qsMediaHost, qsMediaUiBehavior, mediaCarouselInteractor)
+                    // The music player tile replaces the notification-style player.
+                    combine(
+                        mediaHostVisible(qsMediaHost, qsMediaUiBehavior, mediaCarouselInteractor),
+                        mediaTileInteractor.isTileAdded,
+                    ) { visible, tileAdded ->
+                        visible && !tileAdded
+                    }
                 } else {
                     flowOf(false)
                 },

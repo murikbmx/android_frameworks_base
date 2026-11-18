@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Edge sidebar -->
+    <string name="sidebar_add_app">Add app</string>
+    <string name="sidebar_remove_app">Remove</string>
+    <string name="sidebar_move_up">Move up</string>
+    <string name="sidebar_move_down">Move down</string>
+</resources>

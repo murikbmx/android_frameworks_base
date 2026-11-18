@@ -14,14 +14,20 @@
      limitations under the License.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="6.18dp"
-    android:height="15dp"
-    android:viewportWidth="7"
-    android:viewportHeight="17">
+    android:width="7.02dp"
+    android:height="15.84dp"
+    android:viewportWidth="7.952"
+    android:viewportHeight="17.952">
+    <!-- Bolder glyphs: every path gets a stroke of its fill color. -->
+    <group android:translateX="0.476" android:translateY="0.476">
 
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M6.76,13.48H5.5v-4.6H1.49v4.6H0.24V3.52h1.25V7.8H5.5V3.52h1.26V13.48z" />
+        android:pathData="M6.76,13.48H5.5v-4.6H1.49v4.6H0.24V3.52h1.25V7.8H5.5V3.52h1.26V13.48z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="0.952"
+        android:strokeLineJoin="round"/>
     <path
         android:pathData="M 0 0 H 7 V 17 H 0 V 0 Z" />
+    </group>
 </vector>

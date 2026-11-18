@@ -20,7 +20,9 @@ import android.content.Context
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemProperties
 import android.os.UserHandle
+import android.provider.Settings
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
@@ -91,6 +93,10 @@ interface BatteryRepository {
         const val ICON_STYLE_CIRCLE = 1
         const val ICON_STYLE_TEXT = 2
         const val ICON_STYLE_CIRCLE_DOTTED = 3
+        /** No battery in the status bar: the ring around the camera shows the level. */
+        const val ICON_STYLE_HIDDEN = 4
+        /** Settings.Secure key: the ring around the camera replaces the status bar battery. */
+        const val KEY_RING_REPLACES_ICON = "lineage_battery_ring_replace_icon"
         const val SHOW_PERCENT_HIDDEN = 0
         const val SHOW_PERCENT_INSIDE = 1
         const val SHOW_PERCENT_NEXT_TO = 2
@@ -271,8 +277,23 @@ constructor(
                     LineageSettings.System.getUriFor(
                         LineageSettings.System.STATUS_BAR_BATTERY_STYLE
                     )
+                val ringUri = Settings.Secure.getUriFor(BatteryRepository.KEY_RING_REPLACES_ICON)
+                val ringSupported =
+                    SystemProperties.getBoolean("ro.lineage.battery_ring.supported", false)
 
                 fun readMode(): Int {
+                    // The ring around the camera can replace the status bar battery
+                    if (
+                        ringSupported &&
+                            Settings.Secure.getIntForUser(
+                                resolver,
+                                BatteryRepository.KEY_RING_REPLACES_ICON,
+                                0,
+                                UserHandle.USER_CURRENT,
+                            ) != 0
+                    ) {
+                        return BatteryRepository.ICON_STYLE_HIDDEN
+                    }
                     return LineageSettings.System.getIntForUser(
                         resolver,
                         LineageSettings.System.STATUS_BAR_BATTERY_STYLE,
@@ -290,6 +311,12 @@ constructor(
 
                 resolver.registerContentObserver(
                     uri,
+                    /* notifyForDescendants = */ false,
+                    observer,
+                    UserHandle.USER_ALL,
+                )
+                resolver.registerContentObserver(
+                    ringUri,
                     /* notifyForDescendants = */ false,
                     observer,
                     UserHandle.USER_ALL,

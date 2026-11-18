@@ -139,12 +139,14 @@ import android.util.Slog;
 import android.util.Xml;
 import android.window.DesktopExperienceFlags;
 
+import com.android.internal.R;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.gmscompat.sysservice.GmcPackageManager;
 import com.android.internal.os.ApplicationSharedMemory;
 import com.android.internal.os.SomeArgs;
 import com.android.internal.pm.RoSystemFeatures;
+import com.android.internal.util.GooglePhotosHooks;
 import com.android.internal.util.UserIcons;
 
 import dalvik.system.VMRuntime;
@@ -853,6 +855,10 @@ public class ApplicationPackageManager extends PackageManager {
         //    * IPC-retrieved system features (lazily cached, requires per-feature IPC)
         // TODO(b/375000483): Refactor all of this logic, including flag queries, into
         // the SystemFeaturesCache class after initial rollout and validation.
+        Boolean spoofedFeature = GooglePhotosHooks.hasSystemFeature(name);
+        if (spoofedFeature != null) {
+            return spoofedFeature;
+        }
         Boolean maybeHasSystemFeature = RoSystemFeatures.maybeHasFeature(name, version);
         if (maybeHasSystemFeature != null) {
             return maybeHasSystemFeature;
@@ -1907,6 +1913,14 @@ public class ApplicationPackageManager extends PackageManager {
     @Override
     public Drawable getDrawable(String packageName, @DrawableRes int resId,
             @Nullable ApplicationInfo appInfo) {
+        return getDrawableInternal(packageName, resId, appInfo, /* isIcon= */ false);
+    }
+
+    /** @hide */
+    @Nullable
+    @Override
+    public Drawable getDrawableInternal(String packageName, @DrawableRes int resId,
+            @Nullable ApplicationInfo appInfo, boolean isIcon) {
         final ResourceName name = new ResourceName(packageName, resId);
         final Drawable cachedIcon = getCachedIcon(name);
         if (cachedIcon != null) {
@@ -1924,7 +1938,10 @@ public class ApplicationPackageManager extends PackageManager {
         if (resId != 0) {
             try {
                 final Resources r = getResourcesForApplication(appInfo);
-                final Drawable dr = r.getDrawable(resId, null);
+                final Drawable dr = isIcon
+                        ? r.getDrawableForDensityCapped(
+                                resId, /* density= */ 0, /* theme= */ null)
+                        : r.getDrawable(resId, null);
                 if (dr != null) {
                     putCachedIcon(name, dr);
                 }
@@ -3611,7 +3628,8 @@ public class ApplicationPackageManager extends PackageManager {
             if (itemInfo.isArchived) {
                 dr = getArchivedAppIcon(itemInfo.packageName);
             } else {
-                dr = getDrawable(itemInfo.packageName, itemInfo.icon, appInfo);
+                dr = getDrawableInternal(
+                        itemInfo.packageName, itemInfo.icon, appInfo, /* isIcon= */ true);
             }
         }
         if (dr == null && itemInfo != appInfo && appInfo != null) {

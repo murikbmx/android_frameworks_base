@@ -161,6 +161,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
     private static final float SCREEN_ANIMATION_RATE_MINIMUM = 0.0f;
 
     private static final int COLOR_FADE_OFF_ANIMATION_DURATION_MILLIS = 400;
+    private static final int CRT_OFF_ANIMATION_DURATION_MILLIS = 650;
 
     private static final int MSG_UPDATE_POWER_STATE = 1;
     private static final int MSG_SCREEN_ON_UNBLOCKED = 2;
@@ -2341,6 +2342,10 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                 mPowerState.setColorFadeLevel(0.0f);
             }
 
+            // The old CRT TV effect plays on the built-in screen only
+            final boolean crtScreenOff = mDisplayId == Display.DEFAULT_DISPLAY
+                    && performScreenOffTransition
+                    && ColorFade.isCrtScreenOffEnabled(mContext);
             if (mPowerState.getColorFadeLevel() == 0.0f) {
                 // Turn the screen off.
                 // A black surface is already hiding the contents of the screen.
@@ -2349,10 +2354,13 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                 mPowerState.dismissColorFadeResources();
             } else if (performScreenOffTransition
                     && mPowerState.prepareColorFade(mContext,
-                    mColorFadeFadesConfig
+                    mColorFadeFadesConfig && !crtScreenOff
                             ? ColorFade.MODE_FADE : ColorFade.MODE_COOL_DOWN)
                     && mPowerState.getScreenState() != Display.STATE_OFF) {
-                // Perform the screen off animation.
+                // Perform the screen off animation, a bit longer for the CRT TV effect.
+                mColorFadeOffAnimator.setDuration(crtScreenOff
+                        ? CRT_OFF_ANIMATION_DURATION_MILLIS
+                        : COLOR_FADE_OFF_ANIMATION_DURATION_MILLIS);
                 mColorFadeOffAnimator.start();
             } else {
                 // Skip the screen off animation and add a black surface to hide the

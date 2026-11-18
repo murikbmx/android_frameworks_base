@@ -22,7 +22,13 @@ import com.android.systemui.qs.shared.model.TileCategory
 import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
+import com.android.systemui.CoreStartable
+import com.android.systemui.lineage.batteryring.BatteryRingController
+import com.android.systemui.lineage.mediaart.MediaArtController
+import com.android.systemui.lineage.sidebar.SidebarController
+import com.android.systemui.lineage.visualizer.VisualizerController
 import com.android.systemui.qs.tiles.CaffeineTile
+import com.android.systemui.qs.tiles.MediaPlayerTile
 import com.android.systemui.qs.tiles.HeadsUpTile
 import com.android.systemui.qs.tiles.PowerShareTile
 import com.android.systemui.qs.tiles.ProfilesTile
@@ -37,11 +43,35 @@ import com.android.systemui.res.R
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
+import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
 import dagger.multibindings.StringKey
 
 @Module
 interface LineageModule {
+    /** Start the edge sidebar */
+    @Binds
+    @IntoMap
+    @ClassKey(SidebarController::class)
+    fun bindSidebarController(sidebarController: SidebarController): CoreStartable
+
+    @Binds
+    @IntoMap
+    @ClassKey(BatteryRingController::class)
+    fun bindBatteryRingController(controller: BatteryRingController): CoreStartable
+
+    /** Start the lockscreen music visualizer */
+    @Binds
+    @IntoMap
+    @ClassKey(VisualizerController::class)
+    fun bindVisualizerController(controller: VisualizerController): CoreStartable
+
+    /** Show the album art of the playing music on the lockscreen */
+    @Binds
+    @IntoMap
+    @ClassKey(MediaArtController::class)
+    fun bindMediaArtController(controller: MediaArtController): CoreStartable
+
     /** Inject AmbientDisplayTile into tileMap in QSModule */
     @Binds
     @IntoMap
@@ -65,6 +95,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(HeadsUpTile.TILE_SPEC)
     fun bindHeadsUpTile(headsUpTile: HeadsUpTile): QSTileImpl<*>
+
+    /** Inject MediaPlayerTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(MediaPlayerTile.TILE_SPEC)
+    fun bindMediaPlayerTile(mediaPlayerTile: MediaPlayerTile): QSTileImpl<*>
 
     /** Inject PowerShareTile into tileMap in QSModule */
     @Binds
@@ -107,6 +143,7 @@ interface LineageModule {
         const val AOD_TILE_SPEC = "aod"
         const val CAFFEINE_TILE_SPEC = "caffeine"
         const val HEADS_UP_TILE_SPEC = "heads_up"
+        const val MEDIA_PLAYER_TILE_SPEC = "media_player"
         const val POWERSHARE_TILE_SPEC = "powershare"
         const val PROFILES_TILE_SPEC = "profiles"
         const val READING_MODE_TILE_SPEC = "reading_mode"
@@ -172,6 +209,21 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.ACCESSIBILITY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(MEDIA_PLAYER_TILE_SPEC)
+        fun provideMediaPlayerTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(MEDIA_PLAYER_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_media_player,
+                        labelRes = R.string.quick_settings_media_player_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
             )
 
         @Provides
