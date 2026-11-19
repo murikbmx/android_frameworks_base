@@ -19,10 +19,17 @@ package com.android.systemui.flashlight.domain.interactor
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.flashlight.data.repository.FlashlightRepository
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /** Observe and control flashlight state. */
 @SysUISingleton
 class FlashlightInteractor @Inject constructor(private val repository: FlashlightRepository) {
+    init {
+        _instance.value = this
+    }
+
     fun setEnabled(enabled: Boolean) {
         repository.setEnabled(enabled)
     }
@@ -39,4 +46,14 @@ class FlashlightInteractor @Inject constructor(private val repository: Flashligh
 
     val deviceSupportsFlashlight: Boolean
         get() = repository.deviceSupportsFlashlight
+
+    companion object {
+        /**
+         * The process-wide instance, used by the QS tile composable to drive the flashlight
+         * level slider without threading the interactor through every grid layout. Null until
+         * the flashlight tile first needs it.
+         */
+        private val _instance = MutableStateFlow<FlashlightInteractor?>(null)
+        val instance: StateFlow<FlashlightInteractor?> = _instance.asStateFlow()
+    }
 }

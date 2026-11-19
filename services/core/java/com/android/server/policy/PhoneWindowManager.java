@@ -207,6 +207,7 @@ import android.service.dreams.IDreamManager;
 import android.service.vr.IPersistentVrStateCallbacks;
 import android.speech.RecognizerIntent;
 import android.telecom.TelecomManager;
+import android.util.ArrayMap;
 import android.util.Log;
 import android.util.MathUtils;
 import android.util.MutableBoolean;
@@ -814,6 +815,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private String mRearFlashCameraId;
     private boolean mTorchLongPressPowerEnabled;
     private boolean mTorchEnabled;
+    private String mTorchOnCameraId;
+    private final ArrayMap<String, Boolean> mRearFlashCameraCache = new ArrayMap<>();
+    private int mTorchVolumeKeyConsumed;
     private int mTorchTimeout;
     private PendingIntent mTorchOffPendingIntent;
 
@@ -5272,6 +5276,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             case KeyEvent.KEYCODE_VOLUME_DOWN:
             case KeyEvent.KEYCODE_VOLUME_UP:
             case KeyEvent.KEYCODE_VOLUME_MUTE: {
+                // Torch on with the screen off: volume keys change the torch brightness.
+                if (interceptTorchStrengthKey(event, interactive)) {
+                    isWakeKey = false;
+                    result &= ~ACTION_PASS_TO_USER;
+                    break;
+                }
                 // Eat all down & up keys when using volume wake.
                 // This disables volume control, music control, and "beep" on key up.
                 if (isWakeKey && mWakeOnVolumeKeyPress) {
@@ -7412,13 +7422,145 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
     }
 
+    /**
+     * While the torch is on, the screen is off and the power long-press torch gesture is
+     * enabled, volume up/down step the torch strength instead of changing the volume.
+     *
+     * @return true if the key was consumed.
+     */
+    private boolean interceptTorchStrengthKey(KeyEvent event, boolean interactive) {
+        final int keyCode = event.getKeyCode();
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) return false;
+        final boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+        if (!down) {
+            if (mTorchVolumeKeyConsumed == keyCode) {
+                mTorchVolumeKeyConsumed = 0;
+                mHandler.removeCallbacks(mTorchStrengthRepeat);
+                return true;
+            }
+            return false;
+        }
+        if (event.getRepeatCount() > 0) {
+            return mTorchVolumeKeyConsumed == keyCode;
+        }
+        mTorchVolumeKeyConsumed = 0;
+        mHandler.removeCallbacks(mTorchStrengthRepeat);
+        if (!mTorchLongPressPowerEnabled || !mTorchEnabled
+                || (interactive && !isDozeMode())) {
+            return false;
+        }
+        final TelecomManager telecomManager = getTelecommService();
+        if (telecomManager != null && (telecomManager.isRinging() || telecomManager.isInCall())) {
+            return false;
+        }
+        final String cameraId = mTorchOnCameraId != null ? mTorchOnCameraId : mRearFlashCameraId;
+        if (cameraId == null) return false;
+        final Integer max;
+        try {
+            max = mCameraManager.getCameraCharacteristics(cameraId)
+                    .get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL);
+        } catch (CameraAccessException | IllegalArgumentException e) {
+            return false;
+        }
+        if (max == null || max <= 1) return false;
+        mTorchVolumeKeyConsumed = keyCode;
+        mTorchStrengthCameraId = cameraId;
+        mTorchStrengthMax = max;
+        // Screen-off volume keys get no key repeats, so repeat while held ourselves.
+        mHandler.post(mTorchStrengthStep);
+        mHandler.postDelayed(mTorchStrengthRepeat, TORCH_STRENGTH_REPEAT_DELAY_MS);
+        return true;
+    }
+
+    private static final long TORCH_STRENGTH_REPEAT_DELAY_MS = 500;
+    private static final long TORCH_STRENGTH_REPEAT_INTERVAL_MS = 180;
+    private String mTorchStrengthCameraId;
+    private int mTorchStrengthMax;
+
+    private final Runnable mTorchStrengthStep = () -> stepTorchStrength();
+
+    private final Runnable mTorchStrengthRepeat = new Runnable() {
+        @Override
+        public void run() {
+            if (stepTorchStrength()) {
+                mHandler.postDelayed(this, TORCH_STRENGTH_REPEAT_INTERVAL_MS);
+            }
+        }
+    };
+
+    /** @return true if the level changed and holding the key should keep stepping. */
+    private boolean stepTorchStrength() {
+        final int keyCode = mTorchVolumeKeyConsumed;
+        final String cameraId = mTorchStrengthCameraId;
+        if (keyCode == 0 || cameraId == null || !mTorchEnabled) return false;
+        try {
+            final int max = mTorchStrengthMax;
+            final int step = Math.max(1, Math.round(max / 10f));
+            final int current = mCameraManager.getTorchStrengthLevel(cameraId);
+            final int target = MathUtils.constrain(
+                    current + (keyCode == KeyEvent.KEYCODE_VOLUME_UP ? step : -step), 1, max);
+            if (target == current) return false;
+            mCameraManager.turnOnTorchWithStrengthLevel(cameraId, target);
+            // Remember it for the next time the torch is turned on (QS tile or power key).
+            Settings.Secure.putIntForUser(mContext.getContentResolver(),
+                    "flashlight_strength_level", target, UserHandle.USER_CURRENT);
+            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK, "Torch strength",
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+            return true;
+        } catch (CameraAccessException | IllegalArgumentException e) {
+            Slog.w(TAG, "Failed to change torch strength", e);
+            return false;
+        }
+    }
+
+    /**
+     * @return the torch strength last chosen by the user (saved by SystemUI), or 0 if none or
+     *     the torch has no adjustable strength.
+     */
+    private int getSavedTorchStrengthLevel(String cameraId) {
+        final int saved = Settings.Secure.getIntForUser(mContext.getContentResolver(),
+                "flashlight_strength_level", 0, UserHandle.USER_CURRENT);
+        if (saved <= 0) return 0;
+        try {
+            final Integer max = mCameraManager.getCameraCharacteristics(cameraId)
+                    .get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL);
+            return max != null && max > 1 && saved <= max ? saved : 0;
+        } catch (CameraAccessException | IllegalArgumentException e) {
+            return 0;
+        }
+    }
+
+    private boolean isRearFlashCamera(String id) {
+        Boolean cached = mRearFlashCameraCache.get(id);
+        if (cached != null) return cached;
+        boolean result = false;
+        try {
+            CameraCharacteristics c = mCameraManager.getCameraCharacteristics(id);
+            Boolean flashAvailable = c.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
+            Integer lensFacing = c.get(CameraCharacteristics.LENS_FACING);
+            result = flashAvailable != null && flashAvailable
+                    && lensFacing != null && lensFacing == CameraCharacteristics.LENS_FACING_BACK;
+        } catch (CameraAccessException | IllegalArgumentException e) {
+            // Ignore
+        }
+        mRearFlashCameraCache.put(id, result);
+        return result;
+    }
+
     private void toggleTorch() {
         cancelTorchOff();
         final boolean origEnabled = mTorchEnabled;
         try {
-            final String rearFlashCameraId = getRearFlashCameraId();
+            final String rearFlashCameraId = mTorchEnabled && mTorchOnCameraId != null
+                    ? mTorchOnCameraId : getRearFlashCameraId();
             if (rearFlashCameraId != null) {
-                mCameraManager.setTorchMode(rearFlashCameraId, !mTorchEnabled);
+                final int savedLevel = mTorchEnabled ? 0 : getSavedTorchStrengthLevel(
+                        rearFlashCameraId);
+                if (savedLevel > 0) {
+                    mCameraManager.turnOnTorchWithStrengthLevel(rearFlashCameraId, savedLevel);
+                } else {
+                    mCameraManager.setTorchMode(rearFlashCameraId, !mTorchEnabled);
+                }
                 mTorchEnabled = !mTorchEnabled;
             }
         } catch (CameraAccessException e) {
@@ -7454,7 +7596,16 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private class TorchModeCallback extends CameraManager.TorchCallback {
         @Override
         public void onTorchModeChanged(String cameraId, boolean enabled) {
-            if (!cameraId.equals(mRearFlashCameraId)) return;
+            // The torch may be switched on through another back camera id (e.g. a logical
+            // camera from the QS tile), so track whichever rear flash camera reports.
+            if (!isRearFlashCamera(cameraId)) return;
+            if (enabled) {
+                mTorchOnCameraId = cameraId;
+            } else if (mTorchOnCameraId != null && !cameraId.equals(mTorchOnCameraId)) {
+                return;
+            } else {
+                mTorchOnCameraId = null;
+            }
             mTorchEnabled = enabled;
             if (!mTorchEnabled) {
                 cancelTorchOff();
@@ -7463,7 +7614,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         @Override
         public void onTorchModeUnavailable(String cameraId) {
-            if (!cameraId.equals(mRearFlashCameraId)) return;
+            if (!isRearFlashCamera(cameraId)) return;
+            if (mTorchOnCameraId != null && !cameraId.equals(mTorchOnCameraId)) return;
+            mTorchOnCameraId = null;
             mTorchEnabled = false;
             cancelTorchOff();
         }

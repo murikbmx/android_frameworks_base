@@ -29,6 +29,21 @@
         ]
     },
     {
+        // Roboto as the first fallback: Google Sans lacks glyphs that apps
+        // expect from the default font, e.g. the private-use U+EE01 clock
+        // colon used by the DeskClock widget and lock screen formats.
+        "id": "Roboto-Fallback",
+        "fonts": [
+            {
+                "file": "Roboto-Regular.ttf",
+                "supportedAxes": "wght,ital",
+                "axes": {
+                    "wdth": "100"
+                }
+            }
+        ]
+    },
+    {
         // Always install roboto font since ThemeHostTest depends on Roboto font.
         "name": "roboto",
         "fonts": [
