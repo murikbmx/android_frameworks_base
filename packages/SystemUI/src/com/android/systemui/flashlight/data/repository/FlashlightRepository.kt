@@ -441,7 +441,7 @@ constructor(
             if (currentInfo !is FlashlightInfo.Supported.LoadedSuccessfully) return@launch
 
             try {
-                if (level != currentState.level) {
+                if (level != currentState.level || !currentState.enabled) {
                     cameraManager.turnOnTorchWithStrengthLevel(currentInfo.cameraId, level)
                 }
                 if (persist) {

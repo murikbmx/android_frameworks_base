@@ -29,6 +29,7 @@ import com.android.systemui.qs.tiles.base.shared.model.QSTileState
 import com.android.systemui.qs.tiles.base.ui.model.QSTileDataToStateMapper
 import com.android.systemui.res.R
 import com.android.systemui.shade.ShadeDisplayAware
+import java.text.NumberFormat
 import javax.inject.Inject
 
 /** Maps [FlashlightModel] to [QSTileState]. */
@@ -46,7 +47,14 @@ constructor(
                 when (data) {
                     is FlashlightModel.Available.Binary -> buildAvailableState(data.enabled, false)
 
-                    is FlashlightModel.Available.Level -> buildAvailableState(data.enabled, true)
+                    is FlashlightModel.Available.Level -> {
+                        buildAvailableState(data.enabled, true)
+                        if (data.enabled && data.max > 0) {
+                            secondaryLabel =
+                                NumberFormat.getPercentInstance()
+                                    .format(data.level.toDouble() / data.max)
+                        }
+                    }
 
                     is FlashlightModel.Unavailable.Temporarily.Loading,
                     FlashlightModel.Unavailable.Temporarily.CameraInUse,

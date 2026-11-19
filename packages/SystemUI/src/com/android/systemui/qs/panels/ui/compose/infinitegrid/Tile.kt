@@ -169,7 +169,13 @@ fun ContentScope.Tile(
                 tile.state.collect { value = it.toIconProvider() }
             }
 
-        val colors = TileDefaults.getColorForState(uiState, iconOnly)
+        // Large flashlight tile with adjustable strength: drag to set the level, tap to toggle.
+        val flashlightLevel by rememberFlashlightLevel(tile.spec)
+        val flashlightSlider = rememberFlashlightSliderState()
+        val flashlightLevelNow = flashlightLevel
+        val isFlashlightSlider = !iconOnly && flashlightSlider != null && flashlightLevelNow != null
+
+        val colors = TileDefaults.getColorForState(uiState, iconOnly || isFlashlightSlider)
         val hapticsViewModel: TileHapticsViewModel =
             rememberViewModel(traceName = "TileHapticsViewModel") {
                 tileHapticsViewModelFactory.create(tile)
@@ -178,7 +184,7 @@ fun ContentScope.Tile(
         // TODO(b/361789146): Draw the shapes instead of clipping
         val tileShape by TileDefaults.animateTileShapeAsState(uiState)
         val animatedColor by animateColorAsState(colors.background, label = "QSTileBackgroundColor")
-        val isDualTarget = uiState.handlesToggleClick
+        val isDualTarget = uiState.handlesToggleClick && !isFlashlightSlider
         val interactionSource = remember { MutableInteractionSource() }
 
         val surfaceRevealModifier: Modifier
@@ -272,7 +278,7 @@ fun ContentScope.Tile(
                     onClick = onClick@{
                             if (!isClickable) return@onClick
 
-                            if (iconOnly && isDualTarget) {
+                            if ((iconOnly && isDualTarget) || isFlashlightSlider) {
                                 tile.toggleClick()
                             } else {
                                 val hasDetails =
@@ -306,8 +312,21 @@ fun ContentScope.Tile(
                     accessibilityUiState = uiState.accessibilityUiState,
                     iconOnly = iconOnly,
                     isDualTarget = isDualTarget,
-                    modifier = contentRevealModifier,
+                    modifier =
+                        contentRevealModifier.then(
+                            if (isFlashlightSlider) {
+                                Modifier.flashlightLevelDrag(
+                                    flashlightSlider!!,
+                                    flashlightLevelNow!!,
+                                )
+                            } else {
+                                Modifier
+                            }
+                        ),
                 ) {
+                    if (isFlashlightSlider) {
+                        FlashlightLevelFill(flashlightSlider!!, flashlightLevelNow!!)
+                    }
                     val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
                     if (iconOnly) {
                         SmallTileContent(
