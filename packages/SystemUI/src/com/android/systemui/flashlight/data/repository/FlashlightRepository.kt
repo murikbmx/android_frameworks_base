@@ -229,7 +229,10 @@ constructor(
             val cc = cameraManager.getCameraCharacteristics(selectedId)
             val default: Int? = cc.get(CameraCharacteristics.FLASH_INFO_STRENGTH_DEFAULT_LEVEL)
             val max: Int? = cc.get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL)
-            if (default != null) {
+            val saved = secureSettings.getInt(SETTING_LAST_LEVEL, 0)
+            if (max != null && saved in BASE_TORCH_LEVEL..max) {
+                defaultEnabledLevelForUser[currentUserId] = saved
+            } else if (default != null) {
                 defaultEnabledLevelForUser[currentUserId] = default
             }
             flashlightInfo.emit(
@@ -296,6 +299,11 @@ constructor(
                     val currentFlashlightInfo = flashlightInfo.value
                     if (currentFlashlightInfo is FlashlightInfo.Supported.LoadedSuccessfully)
                         if (camId == currentFlashlightInfo.cameraId) {
+                            if (currentFlashlightInfo.hasAdjustableLevels) {
+                                // Remember the level the torch was last set to, whoever set it
+                                // (QS tile, volume keys with the screen off, ...).
+                                rememberLevel(newStrengthLevel)
+                            }
                             if (currentFlashlightInfo.hasAdjustableLevels)
                                 trySend(
                                     FlashlightModel.Available.Level(
@@ -401,6 +409,12 @@ constructor(
             try {
                 if (enabled != currentState.enabled) {
                     if (currentFlashlightInfo.hasAdjustableLevels && enabled) {
+                        // The level may have been changed elsewhere (volume keys with the screen
+                        // off) while nothing here was listening, so prefer the saved one.
+                        val saved = secureSettings.getInt(SETTING_LAST_LEVEL, 0)
+                        if (saved in BASE_TORCH_LEVEL..currentFlashlightInfo.maxLevel!!) {
+                            defaultEnabledLevelForUser[currentUserId] = saved
+                        }
                         cameraManager.turnOnTorchWithStrengthLevel(
                             currentFlashlightInfo.cameraId,
                             defaultEnabledLevelForUser.getOrPut(currentUserId) {
@@ -445,7 +459,7 @@ constructor(
                     cameraManager.turnOnTorchWithStrengthLevel(currentInfo.cameraId, level)
                 }
                 if (persist) {
-                    defaultEnabledLevelForUser[currentUserId] = level
+                    rememberLevel(level)
                 }
             } catch (e: CameraAccessException) {
                 e.printStackTrace()
@@ -468,6 +482,14 @@ constructor(
         }
     }
 
+    /** Keeps [level] as the level used the next time the torch is turned on, across reboots. */
+    private fun rememberLevel(level: Int) {
+        if (level < BASE_TORCH_LEVEL) return
+        val userId = currentUserId
+        if (defaultEnabledLevelForUser.put(userId, level) == level) return
+        bgScope.launch { secureSettings.setInt(SETTING_LAST_LEVEL, level) }
+    }
+
     private val initialDefaultLevel: Int
         get() =
             (flashlightInfo.value as? FlashlightInfo.Supported.LoadedSuccessfully)?.defaultLevel
@@ -478,6 +500,8 @@ constructor(
 
     private companion object {
         private const val BASE_TORCH_LEVEL = 1
+        /** Also read by PhoneWindowManager for the power long-press torch. */
+        private const val SETTING_LAST_LEVEL = "flashlight_strength_level"
         private var RECONNECT_COOLDOWN = 2.seconds
         private val RECONNECT_TIMEOUT = 2.seconds
     }

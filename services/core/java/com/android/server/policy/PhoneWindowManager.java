@@ -7501,12 +7501,32 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     current + (keyCode == KeyEvent.KEYCODE_VOLUME_UP ? step : -step), 1, max);
             if (target == current) return false;
             mCameraManager.turnOnTorchWithStrengthLevel(cameraId, target);
+            // Remember it for the next time the torch is turned on (QS tile or power key).
+            Settings.Secure.putIntForUser(mContext.getContentResolver(),
+                    "flashlight_strength_level", target, UserHandle.USER_CURRENT);
             performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK, "Torch strength",
                     HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
             return true;
         } catch (CameraAccessException | IllegalArgumentException e) {
             Slog.w(TAG, "Failed to change torch strength", e);
             return false;
+        }
+    }
+
+    /**
+     * @return the torch strength last chosen by the user (saved by SystemUI), or 0 if none or
+     *     the torch has no adjustable strength.
+     */
+    private int getSavedTorchStrengthLevel(String cameraId) {
+        final int saved = Settings.Secure.getIntForUser(mContext.getContentResolver(),
+                "flashlight_strength_level", 0, UserHandle.USER_CURRENT);
+        if (saved <= 0) return 0;
+        try {
+            final Integer max = mCameraManager.getCameraCharacteristics(cameraId)
+                    .get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL);
+            return max != null && max > 1 && saved <= max ? saved : 0;
+        } catch (CameraAccessException | IllegalArgumentException e) {
+            return 0;
         }
     }
 
@@ -7534,7 +7554,13 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             final String rearFlashCameraId = mTorchEnabled && mTorchOnCameraId != null
                     ? mTorchOnCameraId : getRearFlashCameraId();
             if (rearFlashCameraId != null) {
-                mCameraManager.setTorchMode(rearFlashCameraId, !mTorchEnabled);
+                final int savedLevel = mTorchEnabled ? 0 : getSavedTorchStrengthLevel(
+                        rearFlashCameraId);
+                if (savedLevel > 0) {
+                    mCameraManager.turnOnTorchWithStrengthLevel(rearFlashCameraId, savedLevel);
+                } else {
+                    mCameraManager.setTorchMode(rearFlashCameraId, !mTorchEnabled);
+                }
                 mTorchEnabled = !mTorchEnabled;
             }
         } catch (CameraAccessException e) {
