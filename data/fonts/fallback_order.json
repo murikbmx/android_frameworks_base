@@ -1,4 +1,6 @@
 [
+  // Roboto right after Google Sans (see google-sans/font_config.json).
+  { "id": "Roboto-Fallback" },
   { "lang": "und-Arab" },
   { "lang": "und-Ethi" },
   { "lang": "und-Hebr" },
